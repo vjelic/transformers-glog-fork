@@ -899,7 +899,6 @@ class Trainer:
             from onnxruntime.training import ORTModule
             logger.info("Converting to ORTModule ....")
             model = ORTModule(self.model)
-            self.model = model._original_module
             self.model_wrapped = model
         if self.args.deepspeed:
             model, optimizer, lr_scheduler = init_deepspeed(self, model, num_training_steps=max_steps)
