@@ -1095,7 +1095,7 @@ class Trainer:
                             # Revert to normal clipping otherwise, handling Apex or full precision
                             torch.nn.utils.clip_grad_norm_(
                                 amp.master_params(self.optimizer) if self.use_apex else model.parameters(),
-                                self.args.max_grad_norm,
+                                self.args.max_grad_norm, error_if_nonfinite=False,
                             )
 
                     # Optimizer step
