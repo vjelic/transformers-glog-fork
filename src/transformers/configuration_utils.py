@@ -175,6 +175,10 @@ class PretrainedConfig(object):
 
         - **use_bfloat16** (:obj:`bool`, `optional`, defaults to :obj:`False`) -- Whether or not the model should use
           BFloat16 scalars (only used by some TensorFlow models).
+
+    Onnxruntime specific parameters
+
+        - **ort** (:obj:`bool`, `optional`, defaults to :obj:`False`) -- Whether or not the model should use ORT.
     """
     model_type: str = ""
     is_composition: bool = False
@@ -186,6 +190,7 @@ class PretrainedConfig(object):
         self.output_attentions = kwargs.pop("output_attentions", False)
         self.torchscript = kwargs.pop("torchscript", False)  # Only used by PyTorch models
         self.use_bfloat16 = kwargs.pop("use_bfloat16", False)
+        self.ort = kwargs.pop("ort", False)
         self.pruned_heads = kwargs.pop("pruned_heads", {})
         self.tie_word_embeddings = kwargs.pop(
             "tie_word_embeddings", True
