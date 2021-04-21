@@ -500,6 +500,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
         self.vocab_transform = nn.Linear(config.dim, config.dim)
         self.vocab_layer_norm = nn.LayerNorm(config.dim, eps=1e-12)
         self.vocab_projector = nn.Linear(config.dim, config.vocab_size)
+        self.ort = config.ort
 
         self.init_weights()
 
@@ -554,7 +555,10 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
 
         mlm_loss = None
         if labels is not None:
-            mlm_loss = self.mlm_loss_fct(prediction_logits.view(-1, prediction_logits.size(-1)), labels.view(-1))
+            if self.ort:
+                mlm_loss = self.mlm_loss_fct(prediction_logits.view(-1, prediction_logits.size(-1)).to(torch.float32), labels.view(-1))
+            else:
+                mlm_loss = self.mlm_loss_fct(prediction_logits.view(-1, prediction_logits.size(-1)), labels.view(-1))
 
         if not return_dict:
             output = (prediction_logits,) + dlbrt_output[1:]
