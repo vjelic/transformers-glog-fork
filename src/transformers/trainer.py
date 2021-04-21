@@ -1259,7 +1259,8 @@ class Trainer:
 
                     self._maybe_log_save_evaluate(tr_loss, model, trial, epoch)
 
-                ort_step_metrics = speed_metrics("train_step", start_train_step_time, self.args.per_device_train_batch_size)
+                ort_step_metrics = speed_metrics("train_step", 
+                    start_train_step_time, self.args.per_device_train_batch_size)
                 self.log(ort_step_metrics)
 
                 if self.control.should_epoch_stop or self.control.should_training_stop:
@@ -1309,7 +1310,8 @@ class Trainer:
                 )
 
         metrics = speed_metrics("train", start_time, self.state.max_steps)
-        ort_end_train_metrics = speed_metrics("train", start_train_stable_time, (self.state.global_step-1) * (self.args.per_device_train_batch_size))
+        ort_end_train_metrics = speed_metrics("train",
+            start_train_stable_time, (num_examples*num_train_epochs - total_train_batch_size))
 
         if self._total_flos is not None:
             self.store_flos()
