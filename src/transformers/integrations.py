@@ -498,7 +498,7 @@ def deepspeed_init(trainer, num_training_steps, resume_from_checkpoint=None):
         deepspeed_zero3_enable(zero.get("stage") == 3)
 
         # automatically assign the optimal config values based on model config
-        hidden_size = model.config.hidden_size
+        hidden_size = model._original_module.config.hidden_size if args.ort else model.config.hidden_size
         if zero.get("reduce_bucket_size") == 0:
             zero["reduce_bucket_size"] = hidden_size * hidden_size
         if zero.get("stage3_prefetch_bucket_size") == 0:
