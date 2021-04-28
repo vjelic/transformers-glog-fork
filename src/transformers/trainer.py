@@ -1081,7 +1081,7 @@ class Trainer:
         delay_optimizer_creation = self.sharded_ddp is not None and self.sharded_ddp != ShardedDDPOption.SIMPLE
         model = self.model
         if self.args.ort:
-            from onnxruntime.training import ORTModule
+            from onnxruntime.training.ortmodule import ORTModule
             logger.info("Converting to ORTModule ....")
             model = ORTModule(self.model)
             self.model_wrapped = model
