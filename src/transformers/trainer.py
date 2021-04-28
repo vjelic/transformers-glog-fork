@@ -1079,20 +1079,18 @@ class Trainer:
             num_update_steps_per_epoch = max_steps
 
         delay_optimizer_creation = self.sharded_ddp is not None and self.sharded_ddp != ShardedDDPOption.SIMPLE
-        model = self.model
-        if self.args.ort:
-            from onnxruntime.training import ORTModule
+        if args.ort:
+            from onnxruntime.training.ortmodule import ORTModule
             logger.info("Converting to ORTModule ....")
             model = ORTModule(self.model)
             self.model_wrapped = model
-        if self.args.deepspeed:
-            if self.args.ort:
-                self.model = model
         if args.deepspeed:
+            if args.ort:
+                self.model = model
             deepspeed_engine, optimizer, lr_scheduler = deepspeed_init(
                 self, num_training_steps=max_steps, resume_from_checkpoint=resume_from_checkpoint
             )
-            self.model = deepspeed_engine.module._original_module if self.args.ort else deepspeed_engine.module
+            self.model = deepspeed_engine.module._original_module if args.ort else deepspeed_engine.module
             self.model_wrapped = deepspeed_engine
             self.deepspeed = deepspeed_engine
             self.optimizer = optimizer
