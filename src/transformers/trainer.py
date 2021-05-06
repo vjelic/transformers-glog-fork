@@ -1224,7 +1224,7 @@ class Trainer:
             for step, inputs in enumerate(epoch_iterator):
                 
                 start_train_step_time = time.time()
-                if (self.state.global_step == 1):
+                if (self.state.global_step == 10):
                     start_train_stable_time = time.time()
 
                 # Skip past any already trained steps if resuming training
@@ -1307,9 +1307,9 @@ class Trainer:
 
                     self._maybe_log_save_evaluate(tr_loss, model, trial, epoch)
 
-                ort_step_metrics = speed_metrics("train_step", 
+                train_step_metrics = speed_metrics("train_step", 
                     start_train_step_time, self.args.per_device_train_batch_size)
-                self.log(ort_step_metrics)
+                self.log(train_step_metrics)
 
                 if self.control.should_epoch_stop or self.control.should_training_stop:
                     break
@@ -1355,13 +1355,14 @@ class Trainer:
                 )
 
         metrics = speed_metrics("train", start_time, self.state.max_steps)
-        ort_end_train_metrics = speed_metrics("train",
-            start_train_stable_time, (num_examples*num_train_epochs - total_train_batch_size))
+        total_samples = args.max_steps*total_train_batch_size if args.max_steps > 0  else num_examples*num_train_epochs
+        perf_samples = total_samples - 10*total_train_batch_size
+        stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, perf_samples)
 
         self.store_flos()
         metrics["total_flos"] = self.state.total_flos
         self.log(metrics)
-        self.log(ort_end_train_metrics)
+        self.log(stable_train_metrics)
 
         self.control = self.callback_handler.on_train_end(args, self.state, self.control)
         # add remaining tr_loss
