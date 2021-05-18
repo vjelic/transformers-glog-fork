@@ -25,7 +25,7 @@ from typing import List, Tuple
 from huggingface_hub import HfApi
 from requests.exceptions import HTTPError
 from transformers import is_torch_available, logging
-from transformers.file_utils import WEIGHTS_NAME
+from transformers.file_utils import WEIGHTS_NAME, is_torch_fx_available
 from transformers.models.auto import get_values
 from transformers.testing_utils import (
     ENDPOINT_STAGING,
@@ -64,6 +64,9 @@ if is_torch_available():
         T5ForConditionalGeneration,
     )
 
+if is_torch_fx_available():
+    from transformers.modeling_fx_utils import symbolic_trace
+
 
 def _config_zero_init(config):
     configs_no_init = copy.deepcopy(config)
@@ -82,6 +85,7 @@ class ModelTesterMixin:
     model_tester = None
     all_model_classes = ()
     all_generative_model_classes = ()
+    fx_ready_model_classes = ()
     test_torchscript = True
     test_pruning = True
     test_resize_embeddings = True
@@ -89,6 +93,7 @@ class ModelTesterMixin:
     test_missing_keys = True
     test_model_parallel = False
     is_encoder_decoder = False
+    test_sequence_classification_problem_types = False
 
     def _prepare_for_class(self, inputs_dict, model_class, return_labels=False):
         inputs_dict = copy.deepcopy(inputs_dict)
@@ -175,6 +180,111 @@ class ModelTesterMixin:
                 state_dict_saved = torch.load(output_model_file)
                 for k in _keys_to_ignore_on_save:
                     self.assertNotIn(k, state_dict_saved)
+
+                # Test we can load the state dict in the model, necessary for the checkpointing API in Trainer.
+                load_result = model.load_state_dict(state_dict_saved, strict=False)
+                self.assertTrue(
+                    len(load_result.missing_keys) == 0
+                    or set(load_result.missing_keys) == set(model._keys_to_ignore_on_save)
+                )
+                self.assertTrue(len(load_result.unexpected_keys) == 0)
+
+    def _mock_init_weights(self, module):
+        if hasattr(module, "weight") and module.weight is not None:
+            module.weight.data.fill_(3)
+        if hasattr(module, "bias") and module.bias is not None:
+            module.bias.data.fill_(3)
+
+    def test_save_load_fast_init_from_base(self):
+        config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        base_class = MODEL_MAPPING[config.__class__]
+
+        if isinstance(base_class, tuple):
+            base_class = base_class[0]
+
+        for model_class in self.all_model_classes:
+            if model_class == base_class:
+                continue
+
+            # make a copy of model class to not break future tests
+            # from https://stackoverflow.com/questions/9541025/how-to-copy-a-python-class
+            class CopyClass(model_class):
+                pass
+
+            model_class_copy = CopyClass
+
+            # make sure that all keys are expected for test
+            model_class_copy._keys_to_ignore_on_load_missing = []
+
+            # make init deterministic, but make sure that
+            # non-initialized weights throw errors nevertheless
+            model_class_copy._init_weights = self._mock_init_weights
+
+            model = base_class(config)
+            state_dict = model.state_dict()
+
+            # this will often delete a single weight of a multi-weight module
+            # to test an edge case
+            random_key_to_del = random.choice(list(state_dict.keys()))
+            del state_dict[random_key_to_del]
+
+            # check that certain keys didn't get saved with the model
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                model.save_pretrained(tmpdirname)
+                torch.save(state_dict, os.path.join(tmpdirname, "pytorch_model.bin"))
+
+                model_fast_init = model_class_copy.from_pretrained(tmpdirname)
+                model_slow_init = model_class_copy.from_pretrained(tmpdirname, _fast_init=False)
+
+                for key in model_fast_init.state_dict().keys():
+                    max_diff = (model_slow_init.state_dict()[key] - model_fast_init.state_dict()[key]).sum().item()
+                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
+
+    def test_save_load_fast_init_to_base(self):
+        config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        base_class = MODEL_MAPPING[config.__class__]
+
+        if isinstance(base_class, tuple):
+            base_class = base_class[0]
+
+        for model_class in self.all_model_classes:
+
+            if model_class == base_class:
+                continue
+
+            # make a copy of model class to not break future tests
+            # from https://stackoverflow.com/questions/9541025/how-to-copy-a-python-class
+            class CopyClass(base_class):
+                pass
+
+            base_class_copy = CopyClass
+
+            # make sure that all keys are expected for test
+            base_class_copy._keys_to_ignore_on_load_missing = []
+
+            # make init deterministic, but make sure that
+            # non-initialized weights throw errors nevertheless
+            base_class_copy._init_weights = self._mock_init_weights
+
+            model = model_class(config)
+            state_dict = model.state_dict()
+
+            # this will often delete a single weight of a multi-weight module
+            # to test an edge case
+            random_key_to_del = random.choice(list(state_dict.keys()))
+            del state_dict[random_key_to_del]
+
+            # check that certain keys didn't get saved with the model
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                model.config.save_pretrained(tmpdirname)
+                torch.save(state_dict, os.path.join(tmpdirname, "pytorch_model.bin"))
+
+                model_fast_init = base_class_copy.from_pretrained(tmpdirname)
+                model_slow_init = base_class_copy.from_pretrained(tmpdirname, _fast_init=False)
+
+                for key in model_fast_init.state_dict().keys():
+                    max_diff = (model_slow_init.state_dict()[key] - model_fast_init.state_dict()[key]).sum().item()
+                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
     def test_initialization(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
@@ -458,6 +568,88 @@ class ModelTesterMixin:
                     models_equal = False
 
             self.assertTrue(models_equal)
+
+    def test_torch_fx(self):
+        config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        self._create_and_check_torch_fx_tracing(config, inputs_dict)
+
+    def test_torch_fx_output_loss(self):
+        config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        self._create_and_check_torch_fx_tracing(config, inputs_dict, output_loss=True)
+
+    def _create_and_check_torch_fx_tracing(self, config, inputs_dict, output_loss=False):
+        if not is_torch_fx_available():
+            return
+
+        configs_no_init = _config_zero_init(config)  # To be sure we have no Nan
+        configs_no_init.return_dict = False
+
+        for model_class in self.fx_ready_model_classes:
+            model = model_class(config=configs_no_init)
+            model.to(torch_device)
+            model.eval()
+            inputs = self._prepare_for_class(inputs_dict, model_class, return_labels=output_loss)
+
+            try:
+                if model.config.is_encoder_decoder:
+                    model.config.use_cache = False  # FSTM still requires this hack -> FSTM should probably be refactored similar to BART afterward
+                    input_ids = inputs["input_ids"]
+                    decoder_attention_mask = inputs["decoder_attention_mask"]
+                    labels = inputs.get("labels", None)
+                    input_names = ["input_ids", "attention_mask", "decoder_input_ids", "decoder_attention_mask"]
+                    if labels is not None:
+                        input_names.append("labels")
+                    prepared_inputs = {k: v for (k, v) in inputs.items() if k in input_names}
+
+                    model_output = model(**prepared_inputs)
+
+                    batch_size = input_ids.shape[0]
+                    encoder_sequence_length = input_ids.shape[1]
+                    decoder_sequence_length = decoder_attention_mask.shape[1]
+
+                    traced_model = symbolic_trace(
+                        model,
+                        input_names,
+                        batch_size=batch_size,
+                        sequence_length=[encoder_sequence_length, decoder_sequence_length],
+                    )
+
+                    traced_output = traced_model(**prepared_inputs)
+
+                else:
+                    input_ids = inputs["input_ids"]
+                    labels = inputs.get("labels", None)
+                    input_names = ["input_ids", "attention_mask", "token_type_ids"]
+                    if labels is not None:
+                        input_names.append("labels")
+                    prepared_inputs = {k: v for (k, v) in inputs.items() if k in input_names}
+
+                    model_output = model(**prepared_inputs)
+
+                    batch_size = input_ids.shape[0]
+
+                    if model_class in get_values(MODEL_FOR_MULTIPLE_CHOICE_MAPPING):
+                        sequence_length = input_ids.shape[2]
+                        num_choices = input_ids.shape[1]
+                    else:
+                        sequence_length = input_ids.shape[1]
+                        num_choices = -1
+
+                    traced_model = symbolic_trace(
+                        model,
+                        input_names,
+                        batch_size=batch_size,
+                        sequence_length=sequence_length,
+                        num_choices=num_choices,
+                    )
+                    traced_output = traced_model(**prepared_inputs)
+
+            except RuntimeError:
+                self.fail("Couldn't trace module.")
+
+            num_outputs = len(model_output)
+            outputs_are_close = all(torch.allclose(model_output[i], traced_output[i]) for i in range(num_outputs))
+            self.assertTrue(outputs_are_close)
 
     def test_headmasking(self):
         if not self.test_head_masking:
@@ -945,7 +1137,6 @@ class ModelTesterMixin:
                 with tempfile.TemporaryDirectory() as temp_dir_name:
                     model.base_model.save_pretrained(temp_dir_name)
                     model, loading_info = model_class.from_pretrained(temp_dir_name, output_loading_info=True)
-
                     with self.subTest(msg=f"Missing keys for {model.__class__.__name__}"):
                         self.assertGreater(len(loading_info["missing_keys"]), 0)
 
@@ -998,7 +1189,6 @@ class ModelTesterMixin:
             # self.assertTrue(check_same_values(model.transformer.wte, model.lm_head))
 
     def test_model_outputs_equivalence(self):
-
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
         def set_nan_tensor_to_zero(t):
@@ -1238,6 +1428,42 @@ class ModelTesterMixin:
 
             model.parallelize()
             model.generate(**cast_to_device(inputs_dict, "cuda:0"), num_beams=2)
+
+    def test_problem_types(self):
+        if not self.test_sequence_classification_problem_types:
+            return
+
+        config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+
+        problem_types = [
+            {"title": "multi_label_classification", "num_labels": 2, "dtype": torch.float},
+            {"title": "single_label_classification", "num_labels": 1, "dtype": torch.long},
+            {"title": "regression", "num_labels": 1, "dtype": torch.float},
+        ]
+
+        for model_class in self.all_model_classes:
+            if model_class not in get_values(MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING):
+                continue
+
+            for problem_type in problem_types:
+                with self.subTest(msg=f"Testing {model_class} with {problem_type['title']}"):
+
+                    config.problem_type = problem_type["title"]
+                    config.num_labels = problem_type["num_labels"]
+
+                    model = model_class(config)
+                    model.to(torch_device)
+                    model.train()
+
+                    inputs = self._prepare_for_class(inputs_dict, model_class, return_labels=True)
+
+                    if problem_type["num_labels"] > 1:
+                        inputs["labels"] = inputs["labels"].unsqueeze(1).repeat(1, problem_type["num_labels"])
+
+                    inputs["labels"] = inputs["labels"].to(problem_type["dtype"])
+
+                    loss = model(**inputs).loss
+                    loss.backward()
 
 
 global_rng = random.Random()
