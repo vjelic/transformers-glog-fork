@@ -19,11 +19,21 @@ from collections.abc import Sequence
 
 import numpy as np
 import torch
-from torch import _softmax_backward_data, nn
-from torch.nn import CrossEntropyLoss, LayerNorm
+from torch import (
+    _softmax_backward_data,
+    nn,
+)
+from torch.nn import (
+    CrossEntropyLoss,
+    LayerNorm,
+)
 
 from ...activations import ACT2FN
-from ...file_utils import add_code_sample_docstrings, add_start_docstrings, add_start_docstrings_to_model_forward
+from ...file_utils import (
+    add_code_sample_docstrings,
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+)
 from ...modeling_outputs import (
     BaseModelOutput,
     MaskedLMOutput,
@@ -34,6 +44,7 @@ from ...modeling_outputs import (
 from ...modeling_utils import PreTrainedModel
 from ...utils import logging
 from .configuration_deberta_v2 import DebertaV2Config
+from .jit_tracing import traceable
 
 
 logger = logging.get_logger(__name__)
@@ -55,7 +66,10 @@ class ContextPooler(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dense = nn.Linear(config.pooler_hidden_size, config.pooler_hidden_size)
-        self.dropout = StableDropout(config.pooler_dropout)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.pooler_dropout)
+        else:
+            self.dropout = StableDropout(config.pooler_dropout)
         self.config = config
 
     def forward(self, hidden_states):
@@ -73,6 +87,7 @@ class ContextPooler(nn.Module):
         return self.config.hidden_size
 
 
+@traceable
 # Copied from transformers.models.deberta.modeling_deberta.XSoftmax with deberta->deberta_v2
 class XSoftmax(torch.autograd.Function):
     """
@@ -144,6 +159,7 @@ def get_mask(input, local_context):
     return mask, dropout
 
 
+@traceable
 # Copied from transformers.models.deberta.modeling_deberta.XDropout
 class XDropout(torch.autograd.Function):
     """Optimized dropout function to save computation and memory by using mask operation instead of multiplication."""
@@ -165,6 +181,11 @@ class XDropout(torch.autograd.Function):
             return grad_output.masked_fill(mask, 0) * ctx.scale, None
         else:
             return grad_output, None
+
+
+class TorchNNDropout(torch.nn.Dropout):
+    def __init__(self, drop_prob):
+        super().__init__(drop_prob)
 
 
 # Copied from transformers.models.deberta.modeling_deberta.StableDropout
@@ -223,7 +244,10 @@ class DebertaV2SelfOutput(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        self.dropout = StableDropout(config.hidden_dropout_prob)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
+        else:
+            self.dropout = StableDropout(config.hidden_dropout_prob)
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
@@ -291,7 +315,10 @@ class DebertaV2Output(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        self.dropout = StableDropout(config.hidden_dropout_prob)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
+        else:
+            self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
 
     def forward(self, hidden_states, input_tensor):
@@ -346,7 +373,10 @@ class ConvLayer(nn.Module):
             config.hidden_size, config.hidden_size, kernel_size, padding=(kernel_size - 1) // 2, groups=groups
         )
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        self.dropout = StableDropout(config.hidden_dropout_prob)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
+        else:
+            self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
 
     def forward(self, hidden_states, residual_states, input_mask):
@@ -584,8 +614,10 @@ class DisentangledSelfAttention(torch.nn.Module):
             self.pos_ebd_size = self.max_relative_positions
             if self.position_buckets > 0:
                 self.pos_ebd_size = self.position_buckets
-
-            self.pos_dropout = StableDropout(config.hidden_dropout_prob)
+            if config.ort:
+                self.pos_dropout = TorchNNDropout(config.hidden_dropout_prob)
+            else:
+                self.pos_dropout = StableDropout(config.hidden_dropout_prob)
 
             if not self.share_att_key:
                 if "c2p" in self.pos_att_type or "p2p" in self.pos_att_type:
@@ -593,7 +625,10 @@ class DisentangledSelfAttention(torch.nn.Module):
                 if "p2c" in self.pos_att_type or "p2p" in self.pos_att_type:
                     self.pos_query_proj = nn.Linear(config.hidden_size, self.all_head_size)
 
-        self.dropout = StableDropout(config.attention_probs_dropout_prob)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.attention_probs_dropout_prob)
+        else:
+            self.dropout = StableDropout(config.attention_probs_dropout_prob)
 
     def transpose_for_scores(self, x, attention_heads):
         new_x_shape = x.size()[:-1] + (attention_heads, -1)
@@ -816,7 +851,10 @@ class DebertaV2Embeddings(nn.Module):
         if self.embedding_size != config.hidden_size:
             self.embed_proj = nn.Linear(self.embedding_size, config.hidden_size, bias=False)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        self.dropout = StableDropout(config.hidden_dropout_prob)
+        if config.ort:
+            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
+        else:
+            self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
@@ -1247,7 +1285,10 @@ class DebertaV2ForSequenceClassification(DebertaV2PreTrainedModel):
         self.classifier = torch.nn.Linear(output_dim, num_labels)
         drop_out = getattr(config, "cls_dropout", None)
         drop_out = self.config.hidden_dropout_prob if drop_out is None else drop_out
-        self.dropout = StableDropout(drop_out)
+        if config.ort:
+            self.dropout = TorchNNDropout(drop_out)
+        else:
+            self.dropout = StableDropout(drop_out)
 
         self.init_weights()
 
