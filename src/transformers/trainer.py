@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 from tqdm.auto import tqdm
-
+from torch_ort import ORTModule
 
 # Integrations must be imported before ML frameworks:
 from .integrations import (  # isort: split
@@ -921,7 +921,8 @@ class Trainer:
 
         # train/eval could be run multiple-times - if already wrapped, don't re-wrap it again
         if unwrap_model(model) is not model:
-            return model
+            if type(model) is not ORTModule:
+                return model
 
         # Mixed precision training with apex (torch < 1.6)
         if self.use_apex and training:
@@ -1099,7 +1100,6 @@ class Trainer:
 
         delay_optimizer_creation = self.sharded_ddp is not None and self.sharded_ddp != ShardedDDPOption.SIMPLE
         if args.ort:
-            from torch_ort import ORTModule
             logger.info("Converting to ORTModule ....")
             model = ORTModule(self.model)
             self.model_wrapped = model
@@ -1135,6 +1135,8 @@ class Trainer:
         # important: at this point:
         # self.model         is the Transformers Model
         # self.model_wrapped is DDP(Transformers Model), Deepspeed(Transformers Model), etc.
+        print('model {}'.format(type(self.model)))
+        print('model_wrapped {}'.format(type(self.model_wrapped)))
 
         # Train!
         if is_torch_tpu_available():
