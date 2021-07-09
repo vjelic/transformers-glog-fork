@@ -32,7 +32,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 from tqdm.auto import tqdm
-from torch_ort import ORTModule
 
 
 # Integrations must be imported before ML frameworks:
@@ -922,6 +921,7 @@ class Trainer:
 
         # train/eval could be run multiple-times - if already wrapped, don't re-wrap it again
         if unwrap_model(model) is not model:
+            from torch_ort import ORTModule
             if type(model) is not ORTModule:
                 return model
 
@@ -1101,6 +1101,7 @@ class Trainer:
 
         delay_optimizer_creation = self.sharded_ddp is not None and self.sharded_ddp != ShardedDDPOption.SIMPLE
         if args.ort:
+            from torch_ort import ORTModule
             logger.info("Converting to ORTModule ....")
             model = ORTModule(self.model)
             self.model_wrapped = model
