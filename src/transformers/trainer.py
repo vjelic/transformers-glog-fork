@@ -1249,7 +1249,7 @@ class Trainer:
 
             for step, inputs in enumerate(epoch_iterator):
 
-                if (self.state.global_step == 5):
+                if (self.state.global_step == 10):
                     start_train_stable_time = time.time()
 
                 # Skip past any already trained steps if resuming training
