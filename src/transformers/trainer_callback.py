@@ -504,7 +504,7 @@ class CiPipelineCallback(TrainerCallback):
             step_json = {"step": state.global_step, "loss": logs["loss"]}
             self.json["steps"].append(step_json)
         if 'stable_train_samples_per_second' in logs:
-            step.json["samples_per_second"] = logs["stable_train_samples_per_second"]
+            self.json["samples_per_second"] = logs["stable_train_samples_per_second"]
 
     def on_train_end(self, args, state, control, **kwargs):
         if state.is_local_process_zero:
