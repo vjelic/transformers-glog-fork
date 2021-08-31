@@ -253,6 +253,7 @@ class T5ClampedDropout(nn.Module):
         super().__init__()
         self.ort = config.ort
         self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout_rate = config.dropout_rate
 
     def forward(self, hidden_states):
         # clamp inf values to enable fp16 training
