@@ -248,12 +248,36 @@ class T5LayerNorm(nn.Module):
         return self.weight * hidden_states
 
 
+class T5ClampedDropout(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.ort = config.ort
+        self.dropout = nn.Dropout(config.dropout_rate)
+
+    def forward(self, hidden_states):
+        # clamp inf values to enable fp16 training
+        if self.ort:
+            # Remove data-based control flow for static graph
+            if hidden_states.dtype == torch.float16:
+                clamp_value = torch.where(torch.isinf(hidden_states).any(), torch.finfo(hidden_states.dtype).max - 1000,
+                    torch.finfo(hidden_states.dtype).max)
+                clamp_value = (1.0-self.dropout_rate)*clamp_value
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        else:
+            if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
+                clamp_value = torch.finfo(hidden_states.dtype).max - 1000
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+
+        hidden_states = self.dropout(hidden_states)
+        return hidden_states
+
+
 class T5DenseReluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(self, hidden_states):
         hidden_states = self.wi(hidden_states)
@@ -269,7 +293,7 @@ class T5DenseGatedGeluDense(nn.Module):
         self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
         self.gelu_act = ACT2FN["gelu_new"]
 
     def forward(self, hidden_states):
@@ -294,7 +318,7 @@ class T5LayerFF(nn.Module):
             )
 
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(self, hidden_states):
         forwarded_states = self.layer_norm(hidden_states)
@@ -529,7 +553,7 @@ class T5LayerSelfAttention(nn.Module):
         super().__init__()
         self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(
         self,
@@ -561,7 +585,7 @@ class T5LayerCrossAttention(nn.Module):
         super().__init__()
         self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(
         self,
@@ -828,7 +852,7 @@ class T5Stack(T5PreTrainedModel):
             [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
         )
         self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
         self.init_weights()
         # Model parallel
