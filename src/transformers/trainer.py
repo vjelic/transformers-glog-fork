@@ -83,6 +83,7 @@ from .trainer_callback import (
     DefaultFlowCallback,
     PrinterCallback,
     ProgressCallback,
+    CiPipelineCallback,
     TrainerCallback,
     TrainerControl,
     TrainerState,
@@ -384,6 +385,7 @@ class Trainer:
             callbacks, self.model, self.tokenizer, self.optimizer, self.lr_scheduler
         )
         self.add_callback(PrinterCallback if self.args.disable_tqdm else DEFAULT_PROGRESS_CALLBACK)
+        self.add_callback(CiPipelineCallback)
 
         # Will be set to True by `self._setup_loggers()` on first call to `self.log()`.
         self._loggers_initialized = False
@@ -1223,6 +1225,7 @@ class Trainer:
                 for _ in train_dataloader:
                     break
 
+        start_train_stable_time = 0
         for epoch in range(epochs_trained, num_train_epochs):
             if isinstance(train_dataloader, DataLoader) and isinstance(train_dataloader.sampler, DistributedSampler):
                 train_dataloader.sampler.set_epoch(epoch)
@@ -1245,6 +1248,9 @@ class Trainer:
             self.control = self.callback_handler.on_epoch_begin(args, self.state, self.control)
 
             for step, inputs in enumerate(epoch_iterator):
+
+                if (self.state.global_step == 5):
+                    start_train_stable_time = time.time()
 
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
@@ -1372,9 +1378,14 @@ class Trainer:
                 )
 
         metrics = speed_metrics("train", start_time, self.state.max_steps)
+        total_samples = args.max_steps*total_train_batch_size if args.max_steps > 0  else num_examples*num_train_epochs
+        perf_samples = total_samples - 10*total_train_batch_size
+        stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, perf_samples)
+
         self.store_flos()
         metrics["total_flos"] = self.state.total_flos
         self.log(metrics)
+        self.log(stable_train_metrics)
 
         self.control = self.callback_handler.on_train_end(args, self.state, self.control)
         # add remaining tr_loss
