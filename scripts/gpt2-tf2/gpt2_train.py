@@ -4,8 +4,12 @@ import jsonlines as jsonl
 from transformers import GPT2TokenizerFast, TFGPT2LMHeadModel
 import tensorflow as tf
 from tensorflow.keras import metrics 
+from tensorflow.keras import mixed_precision
+
 
 BATCH_SIZE=1
+
+USE_FP16=False
 
 def get_dataset(fil):
     data = []
@@ -27,6 +31,12 @@ else:
         truncate = True
     else:
         truncate = False
+    if int(sys.argv[5]) == 1:
+      print("\n"*3)
+      print("Using mixed precision = mixed_float16")
+      mixed_precision.set_global_policy('mixed_float16')
+      USE_FP16=True
+
 
 if model_size == "Small":
     model_name = "gpt2"
@@ -56,20 +66,32 @@ def tokenize(data, truncate=False):
         data = tokenizer(data, return_tensors='tf', padding=True, truncation=True)
     return tf.data.Dataset.from_tensor_slices((dict(data), data['input_ids']))
 
+print("\n")
 print("========================= Loading dataset ========================")
+print("\n")
 train_dataset = tokenize(get_dataset(train_file), truncate).shuffle(1000).batch(BATCH_SIZE)
 test_dataset = tokenize(get_dataset(test_file), truncate).batch(BATCH_SIZE)
+print("\n")
 print("============================ Loading model from pretrained ===========================")
+print("\n")
 model = TFGPT2LMHeadModel.from_pretrained(model_name)
 #Supresses the past_key_values from being expressed in the progress bar
 model.config.use_cache=False
 optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
+if USE_FP16:
+  optimizer = mixed_precision.LossScaleOptimizer(optimizer)
 loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 metric = metrics.SparseCategoricalAccuracy(name='Accuracy')
+print("\n")
 print("========================= Compiling Model ============================")
+print("\n")
 model.compile(optimizer=optimizer, loss=[loss, *[None] * model.config.n_layer], metrics=[metric])
+print("\n")
 print("========================= Finetuning Model ==================================")
+print("\n")
 model.fit(train_dataset, batch_size=64, epochs=num_epochs)
+print("\n")
 print("========================= Evaluating Model ==================================")
+print("\n")
 info = model.evaluate(test_dataset, verbose=2)
 
