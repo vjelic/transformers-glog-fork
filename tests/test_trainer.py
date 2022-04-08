@@ -282,8 +282,8 @@ class TrainerIntegrationCommon:
         for log, log1 in zip(log_history, log_history1):
             _ = log.pop("train_runtime", None)
             _ = log1.pop("train_runtime", None)
-            _ = log.pop("train_samples_per_second", None)
-            _ = log1.pop("train_samples_per_second", None)
+            _ = log.pop("stable_train_samples_per_second", None)
+            _ = log1.pop("stable_train_samples_per_second", None)
             self.assertEqual(log, log1)
 
 
