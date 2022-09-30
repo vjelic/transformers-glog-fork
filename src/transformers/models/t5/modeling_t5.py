@@ -262,29 +262,37 @@ class T5LayerNorm(nn.Module):
         return self.weight * hidden_states
 
 
-try:
-    from apex.normalization import FusedRMSNorm
+class T5ClampedDropout(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.ort = config.ort
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout_rate = config.dropout_rate
 
-    T5LayerNorm = FusedRMSNorm  # noqa
+    def forward(self, hidden_states):
+        # clamp inf values to enable fp16 training
+        if self.ort:
+            # Remove data-based control flow for static graph
+            if hidden_states.dtype == torch.float16:
+                clamp_value = torch.where(torch.isinf(hidden_states).any(), torch.finfo(hidden_states.dtype).max - 1000,
+                    torch.finfo(hidden_states.dtype).max)
+                clamp_value = (1.0-self.dropout_rate)*clamp_value
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        else:
+            if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
+                clamp_value = torch.finfo(hidden_states.dtype).max - 1000
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
 
-    logger.info("Discovered apex.normalization.FusedRMSNorm - will use it instead of T5LayerNorm")
-except ImportError:
-    # using the normal T5LayerNorm
-    pass
-except Exception:
-    logger.warning("discovered apex but it failed to load, falling back to T5LayerNorm")
-    pass
-
-ALL_LAYERNORM_LAYERS.append(T5LayerNorm)
+        hidden_states = self.dropout(hidden_states)
+        return hidden_states
 
 
-class T5DenseActDense(nn.Module):
-    def __init__(self, config: T5Config):
+class T5DenseReluDense(nn.Module):
+    def __init__(self, config):
         super().__init__()
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
-        self.act = ACT2FN[config.dense_act_fn]
+        self.dropout = T5ClampedDropout(config)
 
     def forward(self, hidden_states):
         hidden_states = self.wi(hidden_states)
@@ -300,8 +308,8 @@ class T5DenseGatedActDense(nn.Module):
         self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
-        self.act = ACT2FN[config.dense_act_fn]
+        self.dropout = T5ClampedDropout(config)
+        self.gelu_act = ACT2FN["gelu_new"]
 
     def forward(self, hidden_states):
         hidden_gelu = self.act(self.wi_0(hidden_states))
@@ -321,7 +329,7 @@ class T5LayerFF(nn.Module):
             self.DenseReluDense = T5DenseActDense(config)
 
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(self, hidden_states):
         forwarded_states = self.layer_norm(hidden_states)
@@ -556,7 +564,7 @@ class T5LayerSelfAttention(nn.Module):
         super().__init__()
         self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(
         self,
@@ -588,7 +596,7 @@ class T5LayerCrossAttention(nn.Module):
         super().__init__()
         self.EncDecAttention = T5Attention(config, has_relative_attention_bias=False)
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
     def forward(
         self,
@@ -623,6 +631,7 @@ class T5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
         self.is_decoder = config.is_decoder
+        self.ort = config.ort
         self.layer = nn.ModuleList()
         self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
         if self.is_decoder:
@@ -676,9 +685,16 @@ class T5Block(nn.Module):
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
 
         # clamp inf values to enable fp16 training
-        if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
-            clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-            hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        if self.ort:
+            # Remove data-based control flow for static graph
+            if hidden_states.dtype == torch.float16:
+                clamp_value = torch.where(torch.isinf(hidden_states).any(), torch.finfo(hidden_states.dtype).max - 1000,
+                    torch.finfo(hidden_states.dtype).max)
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        else:
+            if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
+                clamp_value = torch.finfo(hidden_states.dtype).max - 1000
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
 
         do_cross_attention = self.is_decoder and encoder_hidden_states is not None
         if do_cross_attention:
@@ -703,9 +719,16 @@ class T5Block(nn.Module):
             hidden_states = cross_attention_outputs[0]
 
             # clamp inf values to enable fp16 training
-            if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
-                clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+            if self.ort:
+                # Remove data-based control flow for static graph
+                if hidden_states.dtype == torch.float16:
+                    clamp_value = torch.where(torch.isinf(hidden_states).any(), torch.finfo(hidden_states.dtype).max - 1000,
+                        torch.finfo(hidden_states.dtype).max)
+                    hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+            else:
+                if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
+                    clamp_value = torch.finfo(hidden_states.dtype).max - 1000
+                    hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
 
             # Combine self attn and cross attn key value states
             if present_key_value_state is not None:
@@ -718,9 +741,16 @@ class T5Block(nn.Module):
         hidden_states = self.layer[-1](hidden_states)
 
         # clamp inf values to enable fp16 training
-        if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
-            clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-            hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        if self.ort:
+            # Remove data-based control flow for static graph
+            if hidden_states.dtype == torch.float16:
+                clamp_value = torch.where(torch.isinf(hidden_states).any(), torch.finfo(hidden_states.dtype).max - 1000,
+                    torch.finfo(hidden_states.dtype).max)
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+        else:
+            if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
+                clamp_value = torch.finfo(hidden_states.dtype).max - 1000
+                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
 
         outputs = (hidden_states,)
 
@@ -841,7 +871,7 @@ class T5Stack(T5PreTrainedModel):
             [T5Block(config, has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)]
         )
         self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.dropout = nn.Dropout(config.dropout_rate)
+        self.dropout = T5ClampedDropout(config)
 
         # Initialize weights and apply final processing
         self.post_init()

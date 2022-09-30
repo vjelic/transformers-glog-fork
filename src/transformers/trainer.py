@@ -83,6 +83,7 @@ from .trainer_callback import (
     DefaultFlowCallback,
     PrinterCallback,
     ProgressCallback,
+    CiPipelineCallback,
     TrainerCallback,
     TrainerControl,
     TrainerState,
@@ -478,6 +479,7 @@ class Trainer:
             callbacks, self.model, self.tokenizer, self.optimizer, self.lr_scheduler
         )
         self.add_callback(PrinterCallback if self.args.disable_tqdm else DEFAULT_PROGRESS_CALLBACK)
+        self.add_callback(CiPipelineCallback)
 
         # Will be set to True by `self._setup_loggers()` on first call to `self.log()`.
         self._loggers_initialized = False
@@ -1316,7 +1318,12 @@ class Trainer:
 
         # train/eval could be run multiple-times - if already wrapped, don't re-wrap it again
         if unwrap_model(model) is not model:
-            return model
+            if self.args.ort:
+                from torch_ort import ORTModule
+                if type(model) is not ORTModule:
+                    return model
+            else:
+                return model
 
         # Mixed precision training with apex (torch < 1.6)
         if self.use_apex and training:
@@ -1564,13 +1571,15 @@ class Trainer:
             else:
                 debug_overflow = DebugUnderflowOverflow(self.model)  # noqa
 
-        delay_optimizer_creation = (
-            self.sharded_ddp is not None
-            and self.sharded_ddp != ShardedDDPOption.SIMPLE
-            or is_sagemaker_mp_enabled()
-            or self.fsdp is not None
-        )
+        delay_optimizer_creation = self.sharded_ddp is not None and self.sharded_ddp != ShardedDDPOption.SIMPLE
+        if args.ort:
+            from torch_ort import ORTModule
+            logger.info("Converting to ORTModule ....")
+            model = ORTModule(self.model)
+            self.model_wrapped = model
         if args.deepspeed:
+            if args.ort:
+                self.model = model
             deepspeed_engine, optimizer, lr_scheduler = deepspeed_init(
                 self, num_training_steps=max_steps, resume_from_checkpoint=resume_from_checkpoint
             )
@@ -1880,6 +1889,11 @@ class Trainer:
         perf_samples = total_samples - self.args.warmup_steps*total_train_batch_size
         stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, perf_samples)
 
+        metrics = speed_metrics("train", start_time, self.state.max_steps)
+        total_samples = args.max_steps*total_train_batch_size if args.max_steps > 0  else num_examples*num_train_epochs
+        perf_samples = total_samples - 10*total_train_batch_size
+        stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, perf_samples)
+
         self.store_flos()
         metrics["total_flos"] = self.state.total_flos
         metrics["train_loss"] = train_loss
@@ -1889,6 +1903,7 @@ class Trainer:
         self._memory_tracker.stop_and_update_metrics(metrics)
 
         self.log(metrics)
+        self.log(stable_train_metrics)
 
         self.log(stable_train_metrics)
 

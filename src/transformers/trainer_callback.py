@@ -510,6 +510,27 @@ class ProgressCallback(TrainerCallback):
             self.training_bar = None
 
 
+class CiPipelineCallback(TrainerCallback):
+    """
+    A :class:`~transformers.TrainerCallback` that generates json relevent for ci testing
+    """
+    def __init__(self):
+        self.json = {}
+        self.json["steps"] = []
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if 'loss' in logs:
+            step_json = {"step": state.global_step, "loss": logs["loss"]}
+            self.json["steps"].append(step_json)
+        if 'stable_train_samples_per_second' in logs:
+            self.json["samples_per_second"] = logs["stable_train_samples_per_second"]
+
+    def on_train_end(self, args, state, control, **kwargs):
+        if state.is_local_process_zero:
+            jsonString = json.dumps(self.json, indent=4)
+            with open("ci-pipeline-actual.json", "w") as jsonFile:
+                jsonFile.write(jsonString)
+
 class PrinterCallback(TrainerCallback):
     """
     A bare [`TrainerCallback`] that just prints the logs.
