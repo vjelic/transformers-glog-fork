@@ -261,6 +261,20 @@ class T5LayerNorm(nn.Module):
 
         return self.weight * hidden_states
 
+class T5DenseActDense(nn.Module):
+    def __init__(self, config: T5Config):
+        super().__init__()
+        self.wi = nn.Linear(config.d_model, config.d_ff, bias=False)
+        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.act = ACT2FN[config.dense_act_fn]
+
+    def forward(self, hidden_states):
+        hidden_states = self.wi(hidden_states)
+        hidden_states = self.act(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.wo(hidden_states)
+        return hidden_states
 
 class T5ClampedDropout(nn.Module):
     def __init__(self, config):
