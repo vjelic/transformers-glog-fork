@@ -1,9 +1,17 @@
 import sys
 import numpy as np
 import jsonlines as jsonl
-from transformers import GPT2Tokenizer, GPT2TokenizerFast, TFGPT2LMHeadModel, GPT2LMHeadModel, Trainer, training_args, utils, DataCollatorForLanguageModeling, CONFIG_MAPPING, MODEL_FOR_CAUSAL_LM_MAPPING, AutoConfig, AutoModelForCausalLM, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments, default_data_collator, is_torch_tpu_available, set_seed
+from transformers import (
+    GPT2Tokenizer, 
+    GPT2TokenizerFast, 
+    TFGPT2LMHeadModel, 
+    GPT2LMHeadModel, 
+    Trainer, 
+    DataCollatorForLanguageModeling, 
+    HfArgumentParser, 
+    TrainingArguments, 
+    )
 import torch
-from transformers.tokenization_utils_base import AddedToken
 import evaluate 
 import datasets
 from datasets import load_dataset
@@ -18,44 +26,58 @@ except:
 
 import random
 
-num_epochs = 1
-num_gpus = 8
-truncate = False
-
 @dataclass
 class ModelArguments:
-    gpus: Optional[int] = field(default = 8)
     batch_size: Optional[int] = field(default = 16)
+    # We can't use TrainingArguments.fp16 because of internal TrainingArguments validity checking logic,
+    # which throws an exception upon seeing --fp16 unless the PT install is GPU-enabled (even if we 
+    # don't intend to use PT).
+    tf_fp16: Optional[int] = field(default = 0)
     model_size: Optional[str] = field(default="Small")
     data_dir: Optional[str] = field(default="/data/tf-gpt-2/data/")
-    model_name_or_path: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "The model checkpoint for weights initialization.Don't set if you want to train a model from scratch."
-            )
-        },
-    )
 
-def text_to_datasets():
-    f1=open("/dockerx/pg27827.txt","r").readlines()
-    f1=' '.join(f1)
-    f=open("/dockerx/gravity_falls.txt","r").readlines()
-    f=' '.join(f)
+#data_dir="/data/tf-gpt-2/data"
+
+def text_to_datasets(data_dir):
+    train_json=data_dir+"/custom.train.jsonl"
+    test_json=data_dir+"/custom.test.jsonl"
+    try:
+       f=open(train_json, "r")
+       f.close()
+       return
+    except:
+       print("Training JSONs missing, trying to generate...")
+       pass
+
+    try:
+      # original: https://ymarkov.livejournal.com/280578.html
+      f1=open(data_dir+,"r").readlines()
+      f1=' '.join(f1)
+      # original: https://archiveofourown.org/works/13291395 (postprocessed by removing HTML 
+      # tags and non-ASCII characters)
+      f=open(data_dir+"/gravity_falls.txt","r").readlines()
+      f=' '.join(f)
+    except:
+      print("Source texts missing! Please download and try again\n"
+      "Save https://drive.google.com/file/d/1F7FuipSI8VFqMnDmH3d9Bh3g2pI2BLAU/view?usp=sharing as "+data_dir+"/ringbearer_ascii.txt\n"
+      "Save https://drive.google.com/file/d/14w8jtO1tjZWBVQ6fg7Z_xzhvDt2rnLR8/view?usp=sharing as "+data_dir+"/gravity_falls.txt\n"
+      )
+      exit(0)
+
     f=f+f1
     f=f.replace('\n','').replace('  ',' ').replace('  ',' ')
 
-    of1 = open("/data/tf-gpt-2/data/pg27827.train.jsonl", "w")
-    of2 = open("/data/tf-gpt-2/data/pg27827.test.jsonl", "w")
+    of1 = open(train_json, "w")
+    of2 = open(test_json, "w")
     ct1 = 1
     ct2 = 1
     ds1=[]
     ds2=[]
     import json
     row = 0
-    for x in range(0, len(f)-1024-1, 256):
+    for x in range(0, len(f)-4096-1, 256):
         startpos = x
-        endpos = x+1024
+        endpos = x+4096
         if x>0:
             while f[startpos-1]!=' ':
                 startpos+=1
@@ -76,7 +98,6 @@ def text_to_datasets():
     of1.close()
     of2.close()
 
-#text_to_datasets()
 
 # An explicit way to tokenize: a simplified version of what DataCollatorForLanguageModeling does
 def tokenize(tokenizer, lines):
@@ -99,7 +120,7 @@ def tokenize(tokenizer, lines):
         xs, ys, train_dataset = tokenize(tokenizer,16000)
         np.savez("dataset_train.npz", xs=xs, ys=ys)
     """
-    f1=open("/dockerx/pg27827.txt","r").readlines()
+    f1=open("/dockerx/ringbearer_ascii.txt","r").readlines()
     f1=' '.join(f1)
     f=open("/dockerx/gravity_falls.txt","r").readlines()
     f=' '.join(f)
@@ -142,10 +163,11 @@ acc_metric = evaluate.load("accuracy")
 def compute_metrics(p):
     preds, labels = p
     preds = np.argmax(preds, axis=2)
-    mask=(labels!=-100)
+    mask = (labels!=-100)
     result = acc_metric.compute(predictions=preds[mask], references=labels[mask])
     return result
 
+# not used at present
 class MaskedCrossentropy(tf.keras.losses.SparseCategoricalCrossentropy):
     def __init__(self):
         super().__init__(from_logits=True)
@@ -157,19 +179,22 @@ class MaskedCrossentropy(tf.keras.losses.SparseCategoricalCrossentropy):
 class MaskedAccuracy(metrics.SparseCategoricalAccuracy):
     def __init__(self):
         super().__init__(name="Accuracy")
+        self.crossent = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 
-    def call(self, y_true, y_pred):
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        y_true = y_true[:,1:]
+        y_pred = y_pred[:,:-1,:]
         mask = y_true != -100
-        with tf.control_dependencies([tf.print(y_true[mask], y_pred[mask])]):
-          return super().call(y_true[mask], y_pred[mask])
+        return super().update_state(y_true[mask], y_pred[mask])
 
 def model_test(model, tokenizer, is_tf=True):
     prefix = ""
     prompts = [
         "it was a dark and stormy",
-        "makes slightly the sounds of singing and cooing, and wishes, as it were, to climb up",
         "feet are lifted toward the heavens and the jade stalk is",
+        "though it was once forested, Ithilien has become",
         "Dipper has a twin sister, and her name is",
+        "His Majesty Sauron has declared recently"
     ]
     for prompt_text in prompts:
         encoded_prompt = tokenizer.encode(prefix + prompt_text, add_special_tokens=False, return_tensors="tf" if is_tf else "pt")
@@ -208,8 +233,8 @@ def init_datasets(model_args, tokenizer):
         rv=tokenizer(examples["text"], padding='max_length', truncation=True, max_length=1024)
         return {"input_ids": rv["input_ids"], "attention_mask":rv["attention_mask"]}
 
-    train_file = model_args.data_dir + "pg27827.train.jsonl"
-    valid_file = model_args.data_dir + "pg27827.test.jsonl"
+    train_file = model_args.data_dir + "custom.train.jsonl"
+    valid_file = model_args.data_dir + "custom.test.jsonl"
 
     pt_dataset = load_dataset("json", data_files={"train":train_file, "validation":valid_file, "test":valid_file})
     tokenized_dataset = pt_dataset.map(preprocess_function, num_proc=16, remove_columns=["id", "text", "ended", "length"])
@@ -231,7 +256,7 @@ def init_datasets(model_args, tokenizer):
 
     tf_eval_dataset = eval_dataset.to_tf_dataset(  
         columns=["labels", "input_ids", "attention_mask"],
-        shuffle=False,
+        shuffle=True,
         batch_size=model_args.batch_size,
         collate_fn=data_collator,
         drop_remainder=True,
@@ -242,61 +267,55 @@ def init_datasets(model_args, tokenizer):
 def test_tf(model_args, training_args):
     global tokenizer
     devices = []
-    for i in range(num_gpus):
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    #for gpu in gpus:
+    #    tf.config.experimental.set_memory_growth(gpu, True)
+
+    for i in range(len(gpus)):
         devices.append("GPU:"+str(i))
     strategy = tf.distribute.MirroredStrategy(devices=devices)
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
+    print("learning rate", training_args.learning_rate)
+    print("FP16 mode", model_args.tf_fp16)
     with strategy.scope():
         tokenizer = GPT2TokenizerFast.from_pretrained(model_args.model_name, mask_token='#')
         tokenizer.pad_token = tokenizer.eos_token
 
         train_dataset, eval_dataset = init_datasets(model_args, tokenizer)
-        train_dataset = train_dataset.repeat()
-
-        model = TFGPT2LMHeadModel.from_pretrained(model_args.model_name)
+        #train_dataset = train_dataset.repeat()
+        try:
+            model = TFGPT2LMHeadModel.from_pretrained(model_args.model_size+"-pretrained")
+        except:
+            model = TFGPT2LMHeadModel.from_pretrained(model_args.model_name)
+        #model = TFGPT2LMHeadModel.from_pretrained(model_args.model_name)
         model.config.use_cache=False
         optimizer = tf.keras.optimizers.Adam(learning_rate=training_args.learning_rate)
-        if training_args.fp16==1:
-            optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True, initial_scale=256)
-        elif training_args.fp16==2:
-            optimizer = tf.compat.v1.mixed_precision.enable_mixed_precision_graph_rewrite(optimizer, loss_scale='dynamic')
+        if model_args.tf_fp16:
+            if model_args.tf_fp16==1:
+                optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True, initial_scale=256)
+            else:
+                optimizer = tf.compat.v1.mixed_precision.enable_mixed_precision_graph_rewrite(optimizer, loss_scale='dynamic')
         loss = MaskedCrossentropy()
-        metric = MaskedAccuracy()
-        #model.compile(optimizer=optimizer, loss=[loss, *[None] * model.config.n_layer], metrics=[metric])
-        model.compile(optimizer=optimizer, loss="passthrough", metrics=[metric])
+        #metric = MaskedAccuracy()
+        #metric.tokenizer=tokenizer
+        #model.compile(optimizer=optimizer, loss="passthrough", metrics=[metric])
         #model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+
+        model.compile(optimizer=optimizer, loss="passthrough", metrics=[])
 
         #model_test(model, tokenizer, is_tf=True)
         print("====== TRAINING ======")
-        model.fit(train_dataset, batch_size=64, epochs=1, steps_per_epoch=1024)
-        model.save_pretrained("pretrained4")
-        print("====== After 1 epoch: ======")
-        model_test(model, tokenizer, is_tf=True)
-        model.evaluate(eval_dataset)
-        model.fit(train_dataset, batch_size=64, epochs=4, steps_per_epoch=1024)
-        model.save_pretrained("pretrained4")
-        print("====== After 5 epoch: ======")
-        model_test(model, tokenizer, is_tf=True)
-        model.evaluate(eval_dataset)
-        model.fit(train_dataset, batch_size=64, epochs=5, steps_per_epoch=1024)
-        model.save_pretrained("pretrained4")
-        print("====== After 10 epoch: ======")
-        model_test(model, tokenizer, is_tf=True)
-        model.evaluate(eval_dataset)
-        model.fit(train_dataset, batch_size=64, epochs=5, steps_per_epoch=1024)
-        model.save_pretrained("pretrained4")
-        print("====== After 15 epoch: ======")
-        model_test(model, tokenizer, is_tf=True)
-        model.evaluate(eval_dataset)
-        model.fit(train_dataset, batch_size=64, epochs=5, steps_per_epoch=1024)
-        model.save_pretrained("pretrained4")
-        print("====== After 20 epoch: ======")
-        model_test(model, tokenizer, is_tf=True)
-        model.evaluate(eval_dataset)
+        acc=0
+        for k in [1,1,3,5,5,5]:
+            model.fit(train_dataset, batch_size=1, epochs=k)
+            model.save_pretrained(model_args.model_size+"-pretrained")
+            acc+=k
+            print(f"====== After {acc} epoch: ======")
+            model_test(model, tokenizer, is_tf=True)
+            model.evaluate(eval_dataset)
 
 def test_pt(model_args, training_args):
-    global tokenizer
     tokenizer = GPT2TokenizerFast.from_pretrained(model_args.model_name, mask_token='#')
     tokenizer.pad_token_id = tokenizer.eos_token_id
     train_dataset, eval_dataset = init_datasets(model_args, tokenizer)
@@ -304,6 +323,7 @@ def test_pt(model_args, training_args):
     pt_model.config.use_cache=False
     #pt_model.bfloat16()
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15, return_tensors="pt")
+    # For some reason, I run out of GPU memory if I go any higher than 4x1 and eval dataset length 96
     training_args.per_device_train_batch_size=4
     training_args.per_device_eval_batch_size=1
     training_args.max_steps=3000
@@ -354,6 +374,7 @@ def main():
     elif model_args.model_size == "XL":
         model_args.model_name = 'gpt2-xl'
     model_args.tf_flag = tf_flag
+    text_to_datasets(model_args.data_dir)
     if tf_flag:
         test_tf(model_args, training_args)
     else:
