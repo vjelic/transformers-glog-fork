@@ -78,12 +78,12 @@ class CanineConfig(PretrainedConfig):
     Example:
 
     ```python
-    >>> from transformers import CanineModel, CanineConfig
+    >>> from transformers import CanineConfig, CanineModel
 
     >>> # Initializing a CANINE google/canine-s style configuration
     >>> configuration = CanineConfig()
 
-    >>> # Initializing a model from the google/canine-s style configuration
+    >>> # Initializing a model (with random weights) from the google/canine-s style configuration
     >>> model = CanineModel(configuration)
 
     >>> # Accessing the model configuration
@@ -105,7 +105,6 @@ class CanineConfig(PretrainedConfig):
         initializer_range=0.02,
         layer_norm_eps=1e-12,
         use_cache=True,
-        is_encoder_decoder=False,
         pad_token_id=0,
         bos_token_id=0xE000,
         eos_token_id=0xE001,

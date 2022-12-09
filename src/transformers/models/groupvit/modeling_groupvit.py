@@ -64,7 +64,7 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] 
 
 
 # contrastive loss function, adapted from
-# https://sachinruk.github.io/blog/pytorch/pytorch%20lightning/loss%20function/gpu/2021/03/07/GroupViT.html
+# https://sachinruk.github.io/blog/pytorch/pytorch%20lightning/loss%20function/gpu/2021/03/07/CLIP.html
 def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
     return nn.functional.cross_entropy(logits, torch.arange(len(logits), device=logits.device))
 
@@ -72,7 +72,7 @@ def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
 # Copied from transformers.models.clip.modeling_clip.clip_loss with clip->groupvit
 def groupvit_loss(similarity: torch.Tensor) -> torch.Tensor:
     caption_loss = contrastive_loss(similarity)
-    image_loss = contrastive_loss(similarity.T)
+    image_loss = contrastive_loss(similarity.t())
     return (caption_loss + image_loss) / 2.0
 
 
@@ -1132,7 +1132,11 @@ class GroupViTTextTransformer(nn.Module):
 
         # text_embeds.shape = [batch_size, sequence_length, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        pooled_output = last_hidden_state[torch.arange(last_hidden_state.shape[0]), input_ids.argmax(dim=-1)]
+        # casting to torch.int for onnx compatibility: argmax doesn't support int64 inputs with opset 14
+        pooled_output = last_hidden_state[
+            torch.arange(last_hidden_state.shape[0], device=last_hidden_state.device),
+            input_ids.to(dtype=torch.int, device=last_hidden_state.device).argmax(dim=-1),
+        ]
 
         if not return_dict:
             return (last_hidden_state, pooled_output) + encoder_outputs[1:]
@@ -1297,7 +1301,7 @@ class GroupViTVisionModel(GroupViTPreTrainedModel):
         >>> import requests
         >>> from transformers import AutoProcessor, GroupViTVisionModel
 
-        >>> processor = AutoPProcessor.from_pretrained("nvidia/groupvit-gcc-yfcc")
+        >>> processor = AutoProcessor.from_pretrained("nvidia/groupvit-gcc-yfcc")
         >>> model = GroupViTVisionModel.from_pretrained("nvidia/groupvit-gcc-yfcc")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
@@ -1539,7 +1543,7 @@ class GroupViTModel(GroupViTPreTrainedModel):
         # cosine similarity as logits
         logit_scale = self.logit_scale.exp()
         logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
-        logits_per_image = logits_per_text.T
+        logits_per_image = logits_per_text.t()
 
         seg_logits = None
         if output_segmentation:
