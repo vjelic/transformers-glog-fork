@@ -15,6 +15,7 @@ SLURM_NTASKS=${SLURM_NTASKS:-1}
 
 HF_PATH=${HF_PATH:-`pwd`}
 HF_HOME=${HF_HOME:-"${HF_PATH}/nas_share"}
+batch_size=${batch_size:-24}
 
 CMD="python3 -m torch.distributed.launch --node_rank ${SLURM_NODEID} --nnodes ${SLURM_NTASKS} --master_addr ${MASTER_NODE} --master_port 23456 --nproc_per_node ${USEGPUS}"
 
