@@ -7,9 +7,9 @@ MODEL=${2:-"bert"}
 ddp_method=${3:-"torchdpp"}
 deepspeed_conf=$4
 
-#MASTER_NODE=`echo $SLURM_NODELIST | sed -e 's/\[\([0-9]\).*\]/\1/g' | sed -e 's/,.*//g'`
+MASTER_NODE=`echo $SLURM_NODELIST | sed -e 's/\[\([0-9]\).*\]/\1/g' | sed -e 's/,.*//g'`
 
-#MASTER_NODE=${MASTER_NODE:-`hostname`}
+MASTER_NODE=${MASTER_NODE:-`hostname`}
 SLURM_NODEID=${SLURM_NODEID:-0}
 SLURM_NTASKS=${SLURM_NTASKS:-1}
 
@@ -37,6 +37,12 @@ elif echo "t5-large" | grep -i "^${MODEL}$" > /dev/null ; then
     CMD+=" --predict_with_generate --source_lang en --target_lang ro --warmup_steps 5"
     source_prefix_enable=true
     batch_size=30
+elif echo "gpt-neo" | grep -i "^${MODEL}$" > /dev/null ; then
+    CMD+=" $HF_PATH/examples/pytorch/language-modeling/run_clm.py"
+    CMD+=" --model_name_or_path EleutherAI/gpt-neo-1.3B --dataset_name wikitext --dataset_config_name wikitext-2-raw-v1 --output_dir /tmp/test-mlm-bbu"
+    CMD+=" --block_size 256 --do_eval --label_smoothing 0.1"
+    CMD+=" --logging_dir /tmp/log --dataloader_num_workers 1"
+    batch_size=20
 else
     "this model not support"
     exit
