@@ -495,8 +495,8 @@ class Trainer:
         self.eval_dataset = eval_dataset
         self.tokenizer = tokenizer
 
-        if self.place_model_on_device and not getattr(model, "is_loaded_in_8bit", False):
-            self._move_model_to_device(model, args.device)
+        #if self.place_model_on_device and not getattr(model, "is_loaded_in_8bit", False):
+        #    self._move_model_to_device(model, args.device)
 
         # Force n_gpu to 1 to avoid DataParallel as MP will manage the GPUs
         if self.is_model_parallel:
@@ -1622,8 +1622,8 @@ class Trainer:
 
         # do_train is not a reliable argument, as it might not be set and .train() still called, so
         # the following is a workaround:
-        if (args.fp16_full_eval or args.bf16_full_eval) and not args.do_train:
-            self._move_model_to_device(self.model, args.device)
+        #if (args.fp16_full_eval or args.bf16_full_eval) and not args.do_train:
+        #    self._move_model_to_device(self.model, args.device)
 
         if "model_path" in kwargs:
             resume_from_checkpoint = kwargs.pop("model_path")
@@ -1658,10 +1658,10 @@ class Trainer:
             self._load_from_checkpoint(resume_from_checkpoint)
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
-        if model_reloaded:
-            if self.place_model_on_device:
-                self._move_model_to_device(self.model, args.device)
-            self.model_wrapped = self.model
+        #if model_reloaded:
+        #    if self.place_model_on_device:
+        #        self._move_model_to_device(self.model, args.device)
+        #    self.model_wrapped = self.model
 
         inner_training_loop = find_executable_batch_size(
             self._inner_training_loop, self._train_batch_size, args.auto_find_batch_size
