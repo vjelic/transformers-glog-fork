@@ -394,7 +394,7 @@ def convert_checkpoint_from_megatron_to_transformers(args):
     pp_size = megatron_args.pipeline_model_parallel_size
     dtype = torch.float32
     # The regex to extract layer names.
-    layer_re = re.compile("layers\.(\d+)\.([a-z0-9_.]+)\.([a-z]+)")
+    layer_re = re.compile(r"layers\.(\d+)\.([a-z0-9_.]+)\.([a-z]+)")
 
     # Convert.
     print("Converting")
@@ -475,7 +475,6 @@ def convert_checkpoint_from_megatron_to_transformers(args):
 
             # For layernorm(s), simply store the layer norm.
             if op_name.endswith("layernorm"):
-
                 ln_name = "ln_1" if op_name.startswith("input") else "ln_2"
                 output_state_dict[layer_name + "." + ln_name + "." + weight_or_bias] = params
 
@@ -483,7 +482,6 @@ def convert_checkpoint_from_megatron_to_transformers(args):
             elif (
                 op_name == "attention.query_key_value" or op_name == "self_attention.query_key_value"
             ) and weight_or_bias == "weight":
-
                 # Insert a tensor of 1x1xDxD bias.
                 causal_mask = torch.tril(torch.ones((n_positions, n_positions), dtype=dtype)).view(
                     1, 1, n_positions, n_positions
@@ -510,7 +508,6 @@ def convert_checkpoint_from_megatron_to_transformers(args):
             elif (
                 op_name == "attention.query_key_value" or op_name == "self_attention.query_key_value"
             ) and weight_or_bias == "bias":
-
                 out_val = megatron_to_transformers_fix_query_key_value_ordering(
                     params, checkpoint_version, 3, heads, hidden_size_per_head
                 )
@@ -519,13 +516,11 @@ def convert_checkpoint_from_megatron_to_transformers(args):
 
             # Transpose the weights.
             elif weight_or_bias == "weight":
-
                 out_name = megatron_to_transformers[op_name]
                 output_state_dict[layer_name + out_name + "weight"] = params.transpose(0, 1)
 
             # Copy the bias.
             elif weight_or_bias == "bias":
-
                 out_name = megatron_to_transformers[op_name]
                 output_state_dict[layer_name + out_name + "bias"] = params
 
@@ -695,9 +690,9 @@ def convert_checkpoint_from_transformers_to_megatron(args):
             for j in range(args.target_tensor_model_parallel_size):
                 for k in range(args.target_data_parallel_size):
                     if args.target_pipeline_model_parallel_size == 1:
-                        checkpoint_dir = f"mp_rank_{i:02d}_{k:03d}"
+                        checkpoint_dir = f"mp_rank_{j:02d}_{i:03d}"
                     else:
-                        checkpoint_dir = f"mp_rank_{i:02d}_{j:03d}_{k:03d}"
+                        checkpoint_dir = f"mp_rank_{j:02d}_{i:03d}_{k:03d}"
                     checkpoint_dir = os.path.join(release_dir, checkpoint_dir)
                     os.makedirs(checkpoint_dir, exist_ok=True)
                     torch.save(
@@ -751,7 +746,7 @@ def convert_checkpoint_from_transformers_to_megatron(args):
         )
     num_layers = config.num_hidden_layers // args.target_pipeline_model_parallel_size
 
-    layer_re = re.compile("transformer.h\.(\d+)\.([a-z0-9_.]+)\.([a-z]+)")
+    layer_re = re.compile(r"transformer.h\.(\d+)\.([a-z0-9_.]+)\.([a-z]+)")
     # The number of heads.
     heads = config.n_head
     # The hidden_size per head.

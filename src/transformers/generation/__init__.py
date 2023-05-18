@@ -1,7 +1,3 @@
-# flake8: noqa
-# There's no way to ignore "F401 '...' imported but unused" warnings in this
-# module, but to preserve other warnings. So, don't check this module at all.
-
 # Copyright 2022 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +17,10 @@ from typing import TYPE_CHECKING
 from ..utils import OptionalDependencyNotAvailable, _LazyModule, is_flax_available, is_tf_available, is_torch_available
 
 
-_import_structure = {"configuration_utils": ["GenerationConfig"]}
-
+_import_structure = {
+    "configuration_utils": ["GenerationConfig"],
+    "streamers": ["TextIteratorStreamer", "TextStreamer"],
+}
 
 try:
     if not is_torch_available():
@@ -43,6 +41,8 @@ else:
         "ConstrainedBeamSearchScorer",
     ]
     _import_structure["logits_process"] = [
+        "EpsilonLogitsWarper",
+        "EtaLogitsWarper",
         "ForcedBOSTokenLogitsProcessor",
         "ForcedEOSTokenLogitsProcessor",
         "HammingDiversityLogitsProcessor",
@@ -56,6 +56,7 @@ else:
         "NoRepeatNGramLogitsProcessor",
         "PrefixConstrainedLogitsProcessor",
         "RepetitionPenaltyLogitsProcessor",
+        "EncoderRepetitionPenaltyLogitsProcessor",
         "TemperatureLogitsWarper",
         "TopKLogitsWarper",
         "TopPLogitsWarper",
@@ -151,6 +152,7 @@ else:
 
 if TYPE_CHECKING:
     from .configuration_utils import GenerationConfig
+    from .streamers import TextIteratorStreamer, TextStreamer
 
     try:
         if not is_torch_available():
@@ -162,6 +164,9 @@ if TYPE_CHECKING:
         from .beam_search import BeamHypotheses, BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
         from .logits_process import (
             EncoderNoRepeatNGramLogitsProcessor,
+            EncoderRepetitionPenaltyLogitsProcessor,
+            EpsilonLogitsWarper,
+            EtaLogitsWarper,
             ExponentialDecayLengthPenalty,
             ForcedBOSTokenLogitsProcessor,
             ForcedEOSTokenLogitsProcessor,
