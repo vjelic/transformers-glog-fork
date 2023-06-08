@@ -378,7 +378,7 @@ def main():
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
     elif model_args.model_name_or_path:
-        config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+        config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs,trust_remote_code=True)
     else:
         config = CONFIG_MAPPING[model_args.model_type]()
         logger.warning("You are instantiating a new config instance from scratch.")
@@ -410,7 +410,9 @@ def main():
             else getattr(torch, model_args.torch_dtype)
         )
         
-        model = AutoModelForCausalLM.from_pretrained( model_args.model_name_or_path, torch_dtype=torch_dtype, device_map = "auto")
+        model = AutoModelForCausalLM.from_pretrained( model_args.model_name_or_path, torch_dtype=torch_dtype, device_map = "auto",trust_remote_code=True)
+        #model = transformers.pipeline( "text-generation",model=model_args.model_name_or_path, tokenizer=tokenizer,torch_dtype=torch.float16,device_map="auto",trust_remote_code=True)         
+        
         #odel = AutoModelForCausalLM.from_pretrained(
         #   model_args.model_name_or_path,
         #   from_tf=bool(".ckpt" in model_args.model_name_or_path),
