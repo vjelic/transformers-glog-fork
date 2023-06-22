@@ -1,6 +1,5 @@
-#FROM ubuntu:18.04
-FROM rocm/pytorch:latest
-LABEL maintainer="AMD"
+FROM ubuntu:18.04
+LABEL maintainer="Hugging Face"
 LABEL repository="transformers"
 
 RUN apt update && \
@@ -16,7 +15,6 @@ RUN apt update && \
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
     python3 -m pip install --no-cache-dir \
     jupyter \
-    tensorflow-cpu \
     torch
 
 WORKDIR /workspace

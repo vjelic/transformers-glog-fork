@@ -8,7 +8,7 @@ RUN apt install -y git libsndfile1-dev tesseract-ocr espeak-ng python3 python3-p
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
 ARG REF=rocm_ci
-RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
+RUN git clone https://github.com/ROCmSoftwarePlatform/transformers && cd transformers && git checkout $REF
 RUN python3 -m pip install --no-cache-dir -e ./transformers[dev-torch,testing,video]
 
 # If set to nothing, will install the latest version
