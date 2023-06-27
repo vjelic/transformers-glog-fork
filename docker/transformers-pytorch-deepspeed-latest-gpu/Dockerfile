@@ -1,18 +1,20 @@
 # https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel_22-08.html#rel_22-08
-FROM nvcr.io/nvidia/pytorch:22.12-py3
-LABEL maintainer="Hugging Face"
+#FROM nvcr.io/nvidia/pytorch:22.12-py3
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
+
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 ARG PYTORCH='2.0.1'
 # Example: `cu102`, `cu113`, etc.
-ARG CUDA='cu118'
+ARG CUDA='rocm5.4.2'
 
 RUN apt -y update
 RUN apt install -y libaio-dev
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
-ARG REF=main
+ARG REF=rocm_ci
 RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
 
 RUN python3 -m pip uninstall -y torch torchvision torchaudio
@@ -27,13 +29,19 @@ RUN python3 -m pip install --no-cache-dir ./transformers[deepspeed-testing]
 RUN python3 -m pip install --no-cache-dir git+https://github.com/huggingface/accelerate@main#egg=accelerate
 
 # Uninstall `torch-tensorrt` shipped with the base image
-RUN python3 -m pip uninstall -y torch-tensorrt
+#RUN python3 -m pip uninstall -y torch-tensorrt
 
+############################
 # recompile apex
 RUN python3 -m pip uninstall -y apex
-RUN git clone https://github.com/NVIDIA/apex
+#RUN git clone https://github.com/NVIDIA/apex
 #  `MAX_JOBS=1` disables parallel building to avoid cpu memory OOM when building image on GitHub Action (standard) runners
-RUN cd apex && MAX_JOBS=1 python3 -m pip install --global-option="--cpp_ext" --global-option="--cuda_ext" --no-cache -v --disable-pip-version-check .
+#RUN cd apex && MAX_JOBS=1 python3 -m pip install --global-option="--cpp_ext" --global-option="--cuda_ext" --no-cache -v --disable-pip-version-check .
+
+RUN git clone https://github.com/ROCmSoftwarePlatform/apex && \
+    cd apex && \
+    pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ && \
+    cd ..  && rm apex -r
 
 # Pre-build **latest** DeepSpeed, so it would be ready for testing (otherwise, the 1st deepspeed test will timeout)
 RUN python3 -m pip uninstall -y deepspeed

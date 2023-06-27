@@ -1,6 +1,8 @@
-ARG BASE_DOCKER_IMAGE
-FROM $BASE_DOCKER_IMAGE
-LABEL maintainer="Hugging Face"
+#ARG BASE_DOCKER_IMAGE
+#FROM $BASE_DOCKER_IMAGE
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
+
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -12,8 +14,8 @@ RUN apt install -y git libsndfile1-dev tesseract-ocr espeak-ng python3 python3-p
 RUN git lfs install
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
-ARG REF=main
-RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
+ARG REF=rocm_ci
+RUN git clone https://github.com/ROCmSoftwarePlatform/transformers && cd transformers && git checkout $REF
 RUN python3 -m pip install --no-cache-dir -e ./transformers[dev,onnxruntime]
 
 # When installing in editable mode, `transformers` is not recognized as a package.
@@ -43,7 +45,7 @@ RUN [ "$FRAMEWORK" != "pytorch" ] && echo "`deepspeed-testing` installation is s
 RUN python3 -m pip uninstall -y accelerate
 
 # Uninstall `torch-tensorrt` and `apex` shipped with the base image
-RUN python3 -m pip uninstall -y torch-tensorrt apex
+#RUN python3 -m pip uninstall -y torch-tensorrt apex
 
 # Pre-build **nightly** release of DeepSpeed, so it would be ready for testing (otherwise, the 1st deepspeed test will timeout)
 RUN python3 -m pip uninstall -y deepspeed

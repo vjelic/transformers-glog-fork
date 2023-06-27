@@ -1,5 +1,6 @@
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
-LABEL maintainer="Hugging Face"
+#FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
 LABEL repository="transformers"
 
 RUN apt update && \
@@ -18,10 +19,16 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip && \
     tensorflow \
     torch
 
-RUN git clone https://github.com/NVIDIA/apex
-RUN cd apex && \
-    python3 setup.py install && \
-    pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+#RUN git clone https://github.com/NVIDIA/apex
+#RUN cd apex && \
+#    python3 setup.py install && \
+#    pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+
+RUN git clone https://github.com/ROCmSoftwarePlatform/apex && \
+    cd apex && \
+    pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ && \
+    cd ..  && rm apex -r
+
 
 WORKDIR /workspace
 COPY . transformers/

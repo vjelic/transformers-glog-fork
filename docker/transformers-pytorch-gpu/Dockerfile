@@ -1,5 +1,5 @@
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
-LABEL maintainer="Hugging Face"
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -7,8 +7,8 @@ RUN apt update
 RUN apt install -y git libsndfile1-dev tesseract-ocr espeak-ng python3 python3-pip ffmpeg
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
-ARG REF=main
-RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
+ARG REF=rocm_ci
+RUN git clone https://github.com/ROCmSoftwarePlatform/transformers && cd transformers && git checkout $REF
 RUN python3 -m pip install --no-cache-dir -e ./transformers[dev-torch,testing,video]
 
 # If set to nothing, will install the latest version
@@ -16,7 +16,7 @@ ARG PYTORCH='2.0.1'
 ARG TORCH_VISION=''
 ARG TORCH_AUDIO=''
 # Example: `cu102`, `cu113`, etc.
-ARG CUDA='cu118'
+ARG CUDA='rocm5.4.2'
 
 RUN [ ${#PYTORCH} -gt 0 ] && VERSION='torch=='$PYTORCH'.*' ||  VERSION='torch'; python3 -m pip install --no-cache-dir -U $VERSION --extra-index-url https://download.pytorch.org/whl/$CUDA
 RUN [ ${#TORCH_VISION} -gt 0 ] && VERSION='torchvision=='TORCH_VISION'.*' ||  VERSION='torchvision'; python3 -m pip install --no-cache-dir -U $VERSION --extra-index-url https://download.pytorch.org/whl/$CUDA

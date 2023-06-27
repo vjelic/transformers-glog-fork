@@ -1,8 +1,10 @@
-FROM python:3.8
-LABEL maintainer="Hugging Face"
+#FROM python:3.8
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
+
 
 RUN apt update
-RUN git clone https://github.com/huggingface/transformers
+RUN git clone https://github.com/ROCmSoftwarePlatform/transformers
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip && python3 -m pip install --no-cache-dir git+https://github.com/huggingface/doc-builder ./transformers[dev]
 RUN apt-get -y update && apt-get install -y libsndfile1-dev && apt install -y tesseract-ocr

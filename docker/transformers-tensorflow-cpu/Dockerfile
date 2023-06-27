@@ -1,5 +1,5 @@
-FROM ubuntu:18.04
-LABEL maintainer="Hugging Face"
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
 LABEL repository="transformers"
 
 RUN apt update && \

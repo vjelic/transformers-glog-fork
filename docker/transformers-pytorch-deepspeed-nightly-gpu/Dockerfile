@@ -1,17 +1,18 @@
 # https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel_22-08.html#rel_22-08
-FROM nvcr.io/nvidia/pytorch:22.12-py3
-LABEL maintainer="Hugging Face"
+#FROM nvcr.io/nvidia/pytorch:22.12-py3
+FROM rocm/pytorch:latest
+LABEL maintainer="AMD"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Example: `cu102`, `cu113`, etc.
-ARG CUDA='cu118'
+ARG CUDA='rocm5.4.2'
 
 RUN apt -y update
 RUN apt install -y libaio-dev
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
-ARG REF=main
+ARG REF=rocm_ci
 RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
 
 RUN python3 -m pip uninstall -y torch torchvision torchaudio
@@ -26,10 +27,10 @@ RUN python3 -m pip install --no-cache-dir ./transformers[deepspeed-testing]
 RUN python3 -m pip install --no-cache-dir git+https://github.com/huggingface/accelerate@main#egg=accelerate
 
 # Uninstall `torch-tensorrt` and `apex` shipped with the base image
-RUN python3 -m pip uninstall -y torch-tensorrt apex
+#RUN python3 -m pip uninstall -y torch-tensorrt apex
 
 # Pre-build **nightly** release of DeepSpeed, so it would be ready for testing (otherwise, the 1st deepspeed test will timeout)
-RUN python3 -m pip uninstall -y deepspeed
+#RUN python3 -m pip uninstall -y deepspeed
 # This has to be run inside the GPU VMs running the tests. (So far, it fails here due to GPU checks during compilation.)
 # Issue: https://github.com/microsoft/DeepSpeed/issues/2010
 # RUN git clone https://github.com/microsoft/DeepSpeed && cd DeepSpeed && rm -rf build && \
