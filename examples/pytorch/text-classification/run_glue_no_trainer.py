@@ -22,17 +22,17 @@ import random
 from pathlib import Path
 
 import datasets
-import torch
-from datasets import load_dataset
-from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
-
 import evaluate
-import transformers
+import torch
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
-from huggingface_hub import Repository
+from datasets import load_dataset
+from huggingface_hub import Repository, create_repo
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+
+import transformers
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
@@ -48,7 +48,7 @@ from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.26.0.dev0")
+check_min_version("4.31.0.dev0")
 
 logger = get_logger(__name__)
 
@@ -217,7 +217,7 @@ def main():
     # If we're using tracking, we also need to initialize it here and it will by default pick up all supported trackers
     # in the environment
     accelerator = (
-        Accelerator(log_with=args.report_to, logging_dir=args.output_dir) if args.with_tracking else Accelerator()
+        Accelerator(log_with=args.report_to, project_dir=args.output_dir) if args.with_tracking else Accelerator()
     )
     # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
@@ -244,7 +244,8 @@ def main():
                 repo_name = get_full_repo_name(Path(args.output_dir).name, token=args.hub_token)
             else:
                 repo_name = args.hub_model_id
-            repo = Repository(args.output_dir, clone_from=repo_name)
+            create_repo(repo_name, exist_ok=True, token=args.hub_token)
+            repo = Repository(args.output_dir, clone_from=repo_name, token=args.hub_token)
 
             with open(os.path.join(args.output_dir, ".gitignore"), "w+") as gitignore:
                 if "step_*" not in gitignore:
@@ -338,7 +339,7 @@ def main():
     ):
         # Some have all caps in their config, some don't.
         label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
+        if sorted(label_name_to_id.keys()) == sorted(label_list):
             logger.info(
                 f"The configuration of the model provided the following label correspondence: {label_name_to_id}. "
                 "Using it!"
@@ -347,7 +348,7 @@ def main():
         else:
             logger.warning(
                 "Your model seems to have been trained with labels, but they don't match the dataset: ",
-                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
+                f"model labels: {sorted(label_name_to_id.keys())}, dataset labels: {sorted(label_list)}."
                 "\nIgnoring the model labels as a result.",
             )
     elif args.task_name is None and not is_regression:
@@ -500,21 +501,27 @@ def main():
         if "epoch" in training_difference:
             starting_epoch = int(training_difference.replace("epoch_", "")) + 1
             resume_step = None
+            completed_steps = starting_epoch * num_update_steps_per_epoch
         else:
-            resume_step = int(training_difference.replace("step_", ""))
+            # need to multiply `gradient_accumulation_steps` to reflect real steps
+            resume_step = int(training_difference.replace("step_", "")) * args.gradient_accumulation_steps
             starting_epoch = resume_step // len(train_dataloader)
             resume_step -= starting_epoch * len(train_dataloader)
+            completed_steps = resume_step // args.gradient_accumulation_step
+
+    # update the progress_bar if load from checkpoint
+    progress_bar.update(completed_steps)
 
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
             total_loss = 0
-        for step, batch in enumerate(train_dataloader):
-            # We need to skip steps until we reach the resumed step
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    completed_steps += 1
-                    continue
+        if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
+            # We skip the first `n` batches in the dataloader when resuming from a checkpoint
+            active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
+        else:
+            active_dataloader = train_dataloader
+        for step, batch in enumerate(active_dataloader):
             outputs = model(**batch)
             loss = outputs.loss
             # We keep track of the loss at each epoch

@@ -61,7 +61,7 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] 
 
 
 # contrastive loss function, adapted from
-# https://sachinruk.github.io/blog/pytorch/pytorch%20lightning/loss%20function/gpu/2021/03/07/CLIP.html
+# https://sachinruk.github.io/blog/2021-03-07-clip.html
 def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
     return nn.functional.cross_entropy(logits, torch.arange(len(logits), device=logits.device))
 
@@ -188,7 +188,7 @@ class CLIPVisionEmbeddings(nn.Module):
         self.num_patches = (self.image_size // self.patch_size) ** 2
         self.num_positions = self.num_patches + 1
         self.position_embedding = nn.Embedding(self.num_positions, self.embed_dim)
-        self.register_buffer("position_ids", torch.arange(self.num_positions).expand((1, -1)))
+        self.register_buffer("position_ids", torch.arange(self.num_positions).expand((1, -1)), persistent=False)
 
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
         batch_size = pixel_values.shape[0]
@@ -210,7 +210,9 @@ class CLIPTextEmbeddings(nn.Module):
         self.position_embedding = nn.Embedding(config.max_position_embeddings, embed_dim)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
 
     def forward(
         self,
@@ -356,9 +358,9 @@ class CLIPEncoderLayer(nn.Module):
         super().__init__()
         self.embed_dim = config.hidden_size
         self.self_attn = CLIPAttention(config)
-        self.layer_norm1 = nn.LayerNorm(self.embed_dim)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
         self.mlp = CLIPMLP(config)
-        self.layer_norm2 = nn.LayerNorm(self.embed_dim)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
 
     def forward(
         self,
@@ -410,7 +412,6 @@ class CLIPPreTrainedModel(PreTrainedModel):
     config_class = CLIPConfig
     base_model_prefix = "clip"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -491,7 +492,7 @@ CLIP_TEXT_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`CLIPTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -521,7 +522,7 @@ CLIP_VISION_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         output_attentions (`bool`, *optional*):
             Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
@@ -538,7 +539,7 @@ CLIP_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`CLIPTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -556,7 +557,7 @@ CLIP_INPUTS_DOCSTRING = r"""
             [What are position IDs?](../glossary#position-ids)
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         return_loss (`bool`, *optional*):
             Whether or not to return the contrastive loss.
         output_attentions (`bool`, *optional*):
@@ -673,6 +674,24 @@ class CLIPEncoder(nn.Module):
         )
 
 
+# Copied from transformers.models.bart.modeling_bart._make_causal_mask
+def _make_causal_mask(
+    input_ids_shape: torch.Size, dtype: torch.dtype, device: torch.device, past_key_values_length: int = 0
+):
+    """
+    Make causal mask used for bi-directional self-attention.
+    """
+    bsz, tgt_len = input_ids_shape
+    mask = torch.full((tgt_len, tgt_len), torch.tensor(torch.finfo(dtype).min, device=device), device=device)
+    mask_cond = torch.arange(mask.size(-1), device=device)
+    mask.masked_fill_(mask_cond < (mask_cond + 1).view(mask.size(-1), 1), 0)
+    mask = mask.to(dtype)
+
+    if past_key_values_length > 0:
+        mask = torch.cat([torch.zeros(tgt_len, past_key_values_length, dtype=dtype, device=device), mask], dim=-1)
+    return mask[None, None, :, :].expand(bsz, 1, tgt_len, tgt_len + past_key_values_length)
+
+
 class CLIPTextTransformer(nn.Module):
     def __init__(self, config: CLIPTextConfig):
         super().__init__()
@@ -680,7 +699,7 @@ class CLIPTextTransformer(nn.Module):
         embed_dim = config.hidden_size
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)
-        self.final_layer_norm = nn.LayerNorm(embed_dim)
+        self.final_layer_norm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
 
     @add_start_docstrings_to_model_forward(CLIP_TEXT_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutputWithPooling, config_class=CLIPTextConfig)
@@ -711,12 +730,9 @@ class CLIPTextTransformer(nn.Module):
 
         hidden_states = self.embeddings(input_ids=input_ids, position_ids=position_ids)
 
-        bsz, seq_len = input_shape
         # CLIP's text model uses causal mask, prepare it here.
         # https://github.com/openai/CLIP/blob/cfcffb90e69f37bf2ff1e988237a0fbe41f33c04/clip/model.py#L324
-        causal_attention_mask = self._build_causal_attention_mask(bsz, seq_len, hidden_states.dtype).to(
-            hidden_states.device
-        )
+        causal_attention_mask = _make_causal_mask(input_shape, hidden_states.dtype, device=hidden_states.device)
         # expand attention_mask
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -751,15 +767,6 @@ class CLIPTextTransformer(nn.Module):
             hidden_states=encoder_outputs.hidden_states,
             attentions=encoder_outputs.attentions,
         )
-
-    def _build_causal_attention_mask(self, bsz, seq_len, dtype):
-        # lazily create causal attention mask, with full attention between the vision tokens
-        # pytorch uses additive attention mask; fill with -inf
-        mask = torch.empty(bsz, seq_len, seq_len, dtype=dtype)
-        mask.fill_(torch.tensor(torch.finfo(dtype).min))
-        mask.triu_(1)  # zero out the lower diagonal
-        mask = mask.unsqueeze(1)  # expand mask
-        return mask
 
 
 @add_start_docstrings(
@@ -800,10 +807,10 @@ class CLIPTextModel(CLIPPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import CLIPTokenizer, CLIPTextModel
+        >>> from transformers import AutoTokenizer, CLIPTextModel
 
         >>> model = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        >>> tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="pt")
 
@@ -830,9 +837,9 @@ class CLIPVisionTransformer(nn.Module):
         embed_dim = config.hidden_size
 
         self.embeddings = CLIPVisionEmbeddings(config)
-        self.pre_layrnorm = nn.LayerNorm(embed_dim)
+        self.pre_layrnorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
         self.encoder = CLIPEncoder(config)
-        self.post_layernorm = nn.LayerNorm(embed_dim)
+        self.post_layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
 
     @add_start_docstrings_to_model_forward(CLIP_VISION_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutputWithPooling, config_class=CLIPVisionConfig)
@@ -915,10 +922,10 @@ class CLIPVisionModel(CLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import CLIPProcessor, CLIPVisionModel
+        >>> from transformers import AutoProcessor, CLIPVisionModel
 
         >>> model = CLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -970,7 +977,7 @@ class CLIPModel(CLIPPreTrainedModel):
 
         self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
-        self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
+        self.logit_scale = nn.Parameter(torch.tensor(self.config.logit_scale_init_value))
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -993,10 +1000,10 @@ class CLIPModel(CLIPPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import CLIPTokenizer, CLIPModel
+        >>> from transformers import AutoTokenizer, CLIPModel
 
         >>> model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        >>> tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="pt")
         >>> text_features = model.get_text_features(**inputs)
@@ -1040,10 +1047,10 @@ class CLIPModel(CLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import CLIPProcessor, CLIPModel
+        >>> from transformers import AutoProcessor, CLIPModel
 
         >>> model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -1092,10 +1099,10 @@ class CLIPModel(CLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import CLIPProcessor, CLIPModel
+        >>> from transformers import AutoProcessor, CLIPModel
 
         >>> model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -1209,10 +1216,10 @@ class CLIPTextModelWithProjection(CLIPPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import CLIPTokenizer, CLIPTextModelWithProjection
+        >>> from transformers import AutoTokenizer, CLIPTextModelWithProjection
 
         >>> model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
-        >>> tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        >>> tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="pt")
 
@@ -1286,10 +1293,10 @@ class CLIPVisionModelWithProjection(CLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import CLIPProcessor, CLIPVisionModelWithProjection
+        >>> from transformers import AutoProcessor, CLIPVisionModelWithProjection
 
         >>> model = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
-        >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)

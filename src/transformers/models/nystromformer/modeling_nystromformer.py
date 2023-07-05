@@ -42,7 +42,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "uw-madison/nystromformer-512"
 _CONFIG_FOR_DOC = "NystromformerConfig"
-_TOKENIZER_FOR_DOC = "AutoTokenizer"
 
 NYSTROMFORMER_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "uw-madison/nystromformer-512",
@@ -65,7 +64,9 @@ class NystromformerEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)) + 2)
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)) + 2, persistent=False
+        )
         self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
         self.register_buffer(
             "token_type_ids",
@@ -459,7 +460,6 @@ class NystromformerPreTrainedModel(PreTrainedModel):
     config_class = NystromformerConfig
     base_model_prefix = "nystromformer"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -574,7 +574,6 @@ class NystromformerModel(NystromformerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -660,7 +659,7 @@ class NystromformerModel(NystromformerPreTrainedModel):
 
 @add_start_docstrings("""Nyströmformer Model with a `language modeling` head on top.""", NYSTROMFORMER_START_DOCSTRING)
 class NystromformerForMaskedLM(NystromformerPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["cls.predictions.decoder"]
+    _tied_weights_keys = ["cls.predictions.decoder"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -679,7 +678,6 @@ class NystromformerForMaskedLM(NystromformerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MaskedLMOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -777,7 +775,6 @@ class NystromformerForSequenceClassification(NystromformerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -874,7 +871,6 @@ class NystromformerForMultipleChoice(NystromformerPreTrainedModel):
         NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length")
     )
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -969,7 +965,6 @@ class NystromformerForTokenClassification(NystromformerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1049,7 +1044,6 @@ class NystromformerForQuestionAnswering(NystromformerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(NYSTROMFORMER_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=QuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,

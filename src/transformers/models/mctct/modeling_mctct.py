@@ -16,7 +16,6 @@
 
 
 import math
-import random
 from typing import Optional, Tuple, Union
 
 import torch
@@ -33,23 +32,15 @@ from ...modeling_utils import (
     find_pruneable_heads_and_indices,
     prune_linear_layer,
 )
-from ...pytorch_utils import is_torch_less_than_1_9
 from ...utils import logging
 from .configuration_mctct import MCTCTConfig
 
 
 logger = logging.get_logger(__name__)
 
-if is_torch_less_than_1_9:
-    logger.warning(
-        f"You are using torch=={torch.__version__}, but torch>=1.9.0 is required to use MCTCTModel. Please upgrade"
-        " torch."
-    )
-
 _HIDDEN_STATES_START_POSITION = 1
 
 _CONFIG_FOR_DOC = "MCTCTConfig"
-_PROCESSOR_FOR_DOC = "MCTCTProcessor"
 
 # Base docstring
 _CHECKPOINT_FOR_DOC = "speechbrain/m-ctc-t-large"
@@ -158,7 +149,9 @@ class MCTCTEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
         self.register_buffer(
             "token_type_ids",
             torch.zeros(self.position_ids.size(), dtype=torch.long, device=self.position_ids.device),
@@ -452,7 +445,6 @@ class MCTCTPreTrainedModel(PreTrainedModel):
     config_class = MCTCTConfig
     base_model_prefix = "mctct"
     main_input_name = "input_features"
-    _keys_to_ignore_on_load_missing = ["position_ids"]
     supports_gradient_checkpointing = True
 
     def _init_weights(self, module):
@@ -618,7 +610,7 @@ class MCTCTEncoder(MCTCTPreTrainedModel):
                 encoder_states = encoder_states + (hidden_states,)
 
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
-            dropout_probability = random.uniform(0, 1)
+            dropout_probability = torch.rand([])
 
             skip_the_layer = True if self.training and (dropout_probability < self.config.layerdrop) else False
             if not skip_the_layer or deepspeed_zero3_is_enabled:
@@ -678,7 +670,6 @@ class MCTCTModel(MCTCTPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MCTCT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_PROCESSOR_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -749,7 +740,6 @@ class MCTCTForCTC(MCTCTPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MCTCT_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_PROCESSOR_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=CausalLMOutput,
         config_class=_CONFIG_FOR_DOC,

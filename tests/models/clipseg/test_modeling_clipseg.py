@@ -21,8 +21,8 @@ import tempfile
 import unittest
 
 import numpy as np
-
 import requests
+
 import transformers
 from transformers import MODEL_MAPPING, CLIPSegConfig, CLIPSegProcessor, CLIPSegTextConfig, CLIPSegVisionConfig
 from transformers.models.auto import get_values
@@ -44,6 +44,7 @@ from ...test_modeling_common import (
     ids_tensor,
     random_attention_mask,
 )
+from ...test_pipeline_mixin import PipelineTesterMixin
 
 
 if is_torch_available():
@@ -60,6 +61,7 @@ if is_vision_available():
 
 if is_flax_available():
     import jax.numpy as jnp
+
     from transformers.modeling_flax_pytorch_utils import (
         convert_pytorch_state_dict_to_flax,
         load_flax_weights_in_pytorch_model,
@@ -302,7 +304,6 @@ class CLIPSegTextModelTester:
 
 @require_torch
 class CLIPSegTextModelTest(ModelTesterMixin, unittest.TestCase):
-
     all_model_classes = (CLIPSegTextModel,) if is_torch_available() else ()
     fx_compatible = False
     test_pruning = False
@@ -346,7 +347,6 @@ class CLIPSegTextModelTest(ModelTesterMixin, unittest.TestCase):
 
 class CLIPSegModelTester:
     def __init__(self, parent, text_kwargs=None, vision_kwargs=None, is_training=True):
-
         if text_kwargs is None:
             text_kwargs = {}
         if vision_kwargs is None:
@@ -413,8 +413,9 @@ class CLIPSegModelTester:
 
 
 @require_torch
-class CLIPSegModelTest(ModelTesterMixin, unittest.TestCase):
+class CLIPSegModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (CLIPSegModel, CLIPSegForImageSegmentation) if is_torch_available() else ()
+    pipeline_model_mapping = {"feature-extraction": CLIPSegModel} if is_torch_available() else {}
     fx_compatible = False
     test_head_masking = False
     test_pruning = False
@@ -527,7 +528,27 @@ class CLIPSegModelTest(ModelTesterMixin, unittest.TestCase):
             model_state_dict = model.state_dict()
             loaded_model_state_dict = loaded_model.state_dict()
 
+            non_persistent_buffers = {}
+            for key in loaded_model_state_dict.keys():
+                if key not in model_state_dict.keys():
+                    non_persistent_buffers[key] = loaded_model_state_dict[key]
+
+            loaded_model_state_dict = {
+                key: value for key, value in loaded_model_state_dict.items() if key not in non_persistent_buffers
+            }
+
             self.assertEqual(set(model_state_dict.keys()), set(loaded_model_state_dict.keys()))
+
+            model_buffers = list(model.buffers())
+            for non_persistent_buffer in non_persistent_buffers.values():
+                found_buffer = False
+                for i, model_buffer in enumerate(model_buffers):
+                    if torch.equal(non_persistent_buffer, model_buffer):
+                        found_buffer = True
+                        break
+
+                self.assertTrue(found_buffer)
+                model_buffers.pop(i)
 
             models_equal = True
             for layer_name, p1 in model_state_dict.items():
@@ -560,7 +581,6 @@ class CLIPSegModelTest(ModelTesterMixin, unittest.TestCase):
 
         for model_class in self.all_model_classes:
             with self.subTest(model_class.__name__):
-
                 # load PyTorch class
                 pt_model = model_class(config).eval()
                 # Flax models don't use the `use_cache` option and cache is not returned as a default.
@@ -592,7 +612,7 @@ class CLIPSegModelTest(ModelTesterMixin, unittest.TestCase):
                     pt_outputs = pt_model(**pt_inputs).to_tuple()
 
                 # convert inputs to Flax
-                fx_inputs = {k: np.array(v) for k, v in pt_inputs.items() if torch.is_tensor(v)}
+                fx_inputs = {k: np.array(v.to("cpu")) for k, v in pt_inputs.items() if torch.is_tensor(v)}
                 fx_outputs = fx_model(**fx_inputs).to_tuple()
                 self.assertEqual(len(fx_outputs), len(pt_outputs), "Output lengths differ between Flax and PyTorch")
                 for fx_output, pt_output in zip(fx_outputs[:4], pt_outputs[:4]):
@@ -650,7 +670,7 @@ class CLIPSegModelTest(ModelTesterMixin, unittest.TestCase):
                 with torch.no_grad():
                     pt_outputs = pt_model(**pt_inputs).to_tuple()
 
-                fx_inputs = {k: np.array(v) for k, v in pt_inputs.items() if torch.is_tensor(v)}
+                fx_inputs = {k: np.array(v.to("cpu")) for k, v in pt_inputs.items() if torch.is_tensor(v)}
 
                 fx_outputs = fx_model(**fx_inputs).to_tuple()
                 self.assertEqual(len(fx_outputs), len(pt_outputs), "Output lengths differ between Flax and PyTorch")

@@ -55,7 +55,6 @@ from .configuration_megatron_bert import MegatronBertConfig
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "MegatronBertConfig"
-_TOKENIZER_FOR_DOC = "BertTokenizer"
 _CHECKPOINT_FOR_DOC = "nvidia/megatron-bert-cased-345m"
 
 MEGATRON_BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
@@ -150,7 +149,9 @@ class MegatronBertEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
         self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
 
     def forward(
@@ -531,6 +532,12 @@ class MegatronBertEncoder(nn.Module):
         output_hidden_states: Optional[bool] = False,
         return_dict: Optional[bool] = True,
     ) -> Union[Tuple, BaseModelOutputWithPastAndCrossAttentions]:
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
@@ -544,12 +551,6 @@ class MegatronBertEncoder(nn.Module):
             past_key_value = past_key_values[i] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
-
-                if use_cache:
-                    logger.warning(
-                        "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-                    )
-                    use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
@@ -714,7 +715,6 @@ class MegatronBertPreTrainedModel(PreTrainedModel):
     load_tf_weights = load_tf_weights_in_megatron_bert
     base_model_prefix = "bert"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -789,7 +789,7 @@ MEGATRON_BERT_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`BertTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -879,7 +879,6 @@ class MegatronBertModel(MegatronBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -1016,7 +1015,7 @@ class MegatronBertModel(MegatronBertPreTrainedModel):
     MEGATRON_BERT_START_DOCSTRING,
 )
 class MegatronBertForPreTraining(MegatronBertPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["cls.predictions.decoder"]
+    _tied_weights_keys = ["cls.predictions.decoder"]
 
     def __init__(self, config, add_binary_head=True):
         super().__init__(config)
@@ -1068,10 +1067,10 @@ class MegatronBertForPreTraining(MegatronBertPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BertTokenizer, MegatronBertForPreTraining
+        >>> from transformers import AutoTokenizer, MegatronBertForPreTraining
         >>> import torch
 
-        >>> tokenizer = BertTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
+        >>> tokenizer = AutoTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
         >>> model = MegatronBertForPreTraining.from_pretrained("nvidia/megatron-bert-cased-345m")
 
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -1122,9 +1121,7 @@ class MegatronBertForPreTraining(MegatronBertPreTrainedModel):
     MEGATRON_BERT_START_DOCSTRING,
 )
 class MegatronBertForCausalLM(MegatronBertPreTrainedModel):
-
-    _keys_to_ignore_on_load_unexpected = [r"pooler"]
-    _keys_to_ignore_on_load_missing = [r"position_ids", r"cls.predictions.decoder"]
+    _tied_weights_keys = ["cls.predictions.decoder"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -1192,10 +1189,10 @@ class MegatronBertForCausalLM(MegatronBertPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BertTokenizer, MegatronBertForCausalLM, MegatronBertConfig
+        >>> from transformers import AutoTokenizer, MegatronBertForCausalLM, MegatronBertConfig
         >>> import torch
 
-        >>> tokenizer = BertTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
+        >>> tokenizer = AutoTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
         >>> model = MegatronBertForCausalLM.from_pretrained("nvidia/megatron-bert-cased-345m", is_decoder=True)
 
         >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -1259,18 +1256,16 @@ class MegatronBertForCausalLM(MegatronBertPreTrainedModel):
 
         return {"input_ids": input_ids, "attention_mask": attention_mask, "past_key_values": past_key_values}
 
-    def _reorder_cache(self, past, beam_idx):
+    def _reorder_cache(self, past_key_values, beam_idx):
         reordered_past = ()
-        for layer_past in past:
+        for layer_past in past_key_values:
             reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
         return reordered_past
 
 
 @add_start_docstrings("""MegatronBert Model with a `language modeling` head on top.""", MEGATRON_BERT_START_DOCSTRING)
 class MegatronBertForMaskedLM(MegatronBertPreTrainedModel):
-
-    _keys_to_ignore_on_load_unexpected = [r"pooler", r"seq_relationship"]
-    _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder"]
+    _tied_weights_keys = ["cls.predictions.decoder"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -1295,7 +1290,6 @@ class MegatronBertForMaskedLM(MegatronBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MaskedLMOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1378,9 +1372,6 @@ class MegatronBertForMaskedLM(MegatronBertPreTrainedModel):
     MEGATRON_BERT_START_DOCSTRING,
 )
 class MegatronBertForNextSentencePrediction(MegatronBertPreTrainedModel):
-
-    _keys_to_ignore_on_load_unexpected = [r"predictions"]
-
     def __init__(self, config):
         super().__init__(config)
 
@@ -1404,7 +1395,7 @@ class MegatronBertForNextSentencePrediction(MegatronBertPreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
-        **kwargs
+        **kwargs,
     ) -> Union[Tuple, NextSentencePredictorOutput]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1419,10 +1410,10 @@ class MegatronBertForNextSentencePrediction(MegatronBertPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BertTokenizer, MegatronBertForNextSentencePrediction
+        >>> from transformers import AutoTokenizer, MegatronBertForNextSentencePrediction
         >>> import torch
 
-        >>> tokenizer = BertTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
+        >>> tokenizer = AutoTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
         >>> model = MegatronBertForNextSentencePrediction.from_pretrained("nvidia/megatron-bert-cased-345m")
 
         >>> prompt = "In Italy, pizza served in formal settings, such as at a restaurant, is presented unsliced."
@@ -1498,7 +1489,6 @@ class MegatronBertForSequenceClassification(MegatronBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1597,7 +1587,6 @@ class MegatronBertForMultipleChoice(MegatronBertPreTrainedModel):
         MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length")
     )
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1677,9 +1666,6 @@ class MegatronBertForMultipleChoice(MegatronBertPreTrainedModel):
     MEGATRON_BERT_START_DOCSTRING,
 )
 class MegatronBertForTokenClassification(MegatronBertPreTrainedModel):
-
-    _keys_to_ignore_on_load_unexpected = [r"pooler"]
-
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1693,7 +1679,6 @@ class MegatronBertForTokenClassification(MegatronBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1759,9 +1744,6 @@ class MegatronBertForTokenClassification(MegatronBertPreTrainedModel):
     MEGATRON_BERT_START_DOCSTRING,
 )
 class MegatronBertForQuestionAnswering(MegatronBertPreTrainedModel):
-
-    _keys_to_ignore_on_load_unexpected = [r"pooler"]
-
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1774,7 +1756,6 @@ class MegatronBertForQuestionAnswering(MegatronBertPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(MEGATRON_BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=QuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,

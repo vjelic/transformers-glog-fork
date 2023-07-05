@@ -22,24 +22,24 @@ import random
 from pathlib import Path
 
 import datasets
+import evaluate
 import numpy as np
 import torch
+from accelerate import Accelerator
+from accelerate.logging import get_logger
+from accelerate.utils import set_seed
 from datasets import load_dataset
+from huggingface_hub import Repository, create_repo, hf_hub_download
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import functional
 from tqdm.auto import tqdm
 
-import evaluate
 import transformers
-from accelerate import Accelerator
-from accelerate.logging import get_logger
-from accelerate.utils import set_seed
-from huggingface_hub import Repository, hf_hub_download
 from transformers import (
     AutoConfig,
-    AutoFeatureExtractor,
+    AutoImageProcessor,
     AutoModelForSemanticSegmentation,
     SchedulerType,
     default_data_collator,
@@ -50,7 +50,7 @@ from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.26.0.dev0")
+check_min_version("4.31.0.dev0")
 
 logger = get_logger(__name__)
 
@@ -330,7 +330,7 @@ def main():
 
     if args.with_tracking:
         accelerator_log_kwargs["log_with"] = args.report_to
-        accelerator_log_kwargs["logging_dir"] = args.output_dir
+        accelerator_log_kwargs["project_dir"] = args.output_dir
 
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps, **accelerator_log_kwargs)
 
@@ -354,7 +354,8 @@ def main():
                 repo_name = get_full_repo_name(Path(args.output_dir).name, token=args.hub_token)
             else:
                 repo_name = args.hub_model_id
-            repo = Repository(args.output_dir, clone_from=repo_name)
+            create_repo(repo_name, exist_ok=True, token=args.hub_token)
+            repo = Repository(args.output_dir, clone_from=repo_name, token=args.hub_token)
 
             with open(os.path.join(args.output_dir, ".gitignore"), "w+") as gitignore:
                 if "step_*" not in gitignore:
@@ -396,20 +397,20 @@ def main():
     id2label = {int(k): v for k, v in id2label.items()}
     label2id = {v: k for k, v in id2label.items()}
 
-    # Load pretrained model and feature extractor
+    # Load pretrained model and image processor
     config = AutoConfig.from_pretrained(args.model_name_or_path, id2label=id2label, label2id=label2id)
-    feature_extractor = AutoFeatureExtractor.from_pretrained(args.model_name_or_path)
+    image_processor = AutoImageProcessor.from_pretrained(args.model_name_or_path)
     model = AutoModelForSemanticSegmentation.from_pretrained(args.model_name_or_path, config=config)
 
     # Preprocessing the datasets
     # Define torchvision transforms to be applied to each image + target.
     # Not that straightforward in torchvision: https://github.com/pytorch/vision/issues/9
     # Currently based on official torchvision references: https://github.com/pytorch/vision/blob/main/references/segmentation/transforms.py
-    if "shortest_edge" in feature_extractor.size:
+    if "shortest_edge" in image_processor.size:
         # We instead set the target size as (shortest_edge, shortest_edge) to here to ensure all images are batchable.
-        size = (feature_extractor.size["shortest_edge"], feature_extractor.size["shortest_edge"])
+        size = (image_processor.size["shortest_edge"], image_processor.size["shortest_edge"])
     else:
-        size = (feature_extractor.size["height"], feature_extractor.size["width"])
+        size = (image_processor.size["height"], image_processor.size["width"])
     train_transforms = Compose(
         [
             ReduceLabels() if args.reduce_labels else Identity(),
@@ -417,7 +418,7 @@ def main():
             RandomHorizontalFlip(flip_prob=0.5),
             PILToTensor(),
             ConvertImageDtype(torch.float),
-            Normalize(mean=feature_extractor.image_mean, std=feature_extractor.image_std),
+            Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
         ]
     )
     # Define torchvision transform to be applied to each image.
@@ -428,7 +429,7 @@ def main():
             Resize(size=size),
             PILToTensor(),
             ConvertImageDtype(torch.float),
-            Normalize(mean=feature_extractor.image_mean, std=feature_extractor.image_std),
+            Normalize(mean=image_processor.image_mean, std=image_processor.image_std),
         ]
     )
 
@@ -440,7 +441,7 @@ def main():
             pixel_values.append(image)
             labels.append(target)
 
-        encoding = dict()
+        encoding = {}
         encoding["pixel_values"] = torch.stack(pixel_values)
         encoding["labels"] = torch.stack(labels)
 
@@ -454,7 +455,7 @@ def main():
             pixel_values.append(image)
             labels.append(target)
 
-        encoding = dict()
+        encoding = {}
         encoding["pixel_values"] = torch.stack(pixel_values)
         encoding["labels"] = torch.stack(labels)
 
@@ -553,22 +554,27 @@ def main():
         if "epoch" in training_difference:
             starting_epoch = int(training_difference.replace("epoch_", "")) + 1
             resume_step = None
+            completed_steps = starting_epoch * num_update_steps_per_epoch
         else:
-            resume_step = int(training_difference.replace("step_", ""))
+            # need to multiply `gradient_accumulation_steps` to reflect real steps
+            resume_step = int(training_difference.replace("step_", "")) * args.gradient_accumulation_steps
             starting_epoch = resume_step // len(train_dataloader)
             resume_step -= starting_epoch * len(train_dataloader)
+            completed_steps = resume_step // args.gradient_accumulation_stepp
+
+    # update the progress_bar if load from checkpoint
+    progress_bar.update(completed_steps)
 
     for epoch in range(starting_epoch, args.num_train_epochs):
+        model.train()
         if args.with_tracking:
             total_loss = 0
-        model.train()
-        for step, batch in enumerate(train_dataloader):
-            # We need to skip steps until we reach the resumed step
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    completed_steps += 1
-                    continue
-
+        if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
+            # We skip the first `n` batches in the dataloader when resuming from a checkpoint
+            active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
+        else:
+            active_dataloader = train_dataloader
+        for step, batch in enumerate(active_dataloader):
             with accelerator.accumulate(model):
                 outputs = model(**batch)
                 loss = outputs.loss
@@ -601,7 +607,7 @@ def main():
                             save_function=accelerator.save,
                         )
                         if accelerator.is_main_process:
-                            feature_extractor.save_pretrained(args.output_dir)
+                            image_processor.save_pretrained(args.output_dir)
                             repo.push_to_hub(
                                 commit_message=f"Training in progress {completed_steps} steps",
                                 blocking=False,
@@ -656,7 +662,7 @@ def main():
                 args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
             )
             if accelerator.is_main_process:
-                feature_extractor.save_pretrained(args.output_dir)
+                image_processor.save_pretrained(args.output_dir)
                 repo.push_to_hub(
                     commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
                 )
@@ -677,11 +683,13 @@ def main():
             args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
         )
         if accelerator.is_main_process:
-            feature_extractor.save_pretrained(args.output_dir)
+            image_processor.save_pretrained(args.output_dir)
             if args.push_to_hub:
                 repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
 
-            all_results = {f"eval_{k}": v for k, v in eval_metrics.items()}
+            all_results = {
+                f"eval_{k}": v.tolist() if isinstance(v, np.ndarray) else v for k, v in eval_metrics.items()
+            }
             with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
                 json.dump(all_results, f)
 

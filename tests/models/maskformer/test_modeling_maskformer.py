@@ -26,6 +26,7 @@ from transformers.utils import cached_property
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin
+from ...test_pipeline_mixin import PipelineTesterMixin
 
 
 if is_torch_available():
@@ -34,7 +35,7 @@ if is_torch_available():
     from transformers import MaskFormerForInstanceSegmentation, MaskFormerModel
 
     if is_vision_available():
-        from transformers import MaskFormerFeatureExtractor
+        from transformers import MaskFormerImageProcessor
 
 if is_vision_available():
     from PIL import Image
@@ -172,9 +173,13 @@ class MaskFormerModelTester:
 
 
 @require_torch
-class MaskFormerModelTest(ModelTesterMixin, unittest.TestCase):
-
+class MaskFormerModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (MaskFormerModel, MaskFormerForInstanceSegmentation) if is_torch_available() else ()
+    pipeline_model_mapping = (
+        {"feature-extraction": MaskFormerModel, "image-segmentation": MaskFormerForInstanceSegmentation}
+        if is_torch_available()
+        else {}
+    )
 
     is_encoder_decoder = False
     test_pruning = False
@@ -321,18 +326,18 @@ def prepare_img():
 @slow
 class MaskFormerModelIntegrationTest(unittest.TestCase):
     @cached_property
-    def default_feature_extractor(self):
+    def default_image_processor(self):
         return (
-            MaskFormerFeatureExtractor.from_pretrained("facebook/maskformer-swin-small-coco")
+            MaskFormerImageProcessor.from_pretrained("facebook/maskformer-swin-small-coco")
             if is_vision_available()
             else None
         )
 
     def test_inference_no_head(self):
         model = MaskFormerModel.from_pretrained("facebook/maskformer-swin-small-coco").to(torch_device)
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        inputs = feature_extractor(image, return_tensors="pt").to(torch_device)
+        inputs = image_processor(image, return_tensors="pt").to(torch_device)
         inputs_shape = inputs["pixel_values"].shape
         # check size is divisible by 32
         self.assertTrue((inputs_shape[-1] % 32) == 0 and (inputs_shape[-2] % 32) == 0)
@@ -375,9 +380,9 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
             .to(torch_device)
             .eval()
         )
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        inputs = feature_extractor(image, return_tensors="pt").to(torch_device)
+        inputs = image_processor(image, return_tensors="pt").to(torch_device)
         inputs_shape = inputs["pixel_values"].shape
         # check size is divisible by 32
         self.assertTrue((inputs_shape[-1] % 32) == 0 and (inputs_shape[-2] % 32) == 0)
@@ -419,9 +424,9 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
             .to(torch_device)
             .eval()
         )
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        inputs = feature_extractor(image, return_tensors="pt").to(torch_device)
+        inputs = image_processor(image, return_tensors="pt").to(torch_device)
         inputs_shape = inputs["pixel_values"].shape
         # check size is divisible by 32
         self.assertTrue((inputs_shape[-1] % 32) == 0 and (inputs_shape[-2] % 32) == 0)
@@ -455,9 +460,9 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
             .to(torch_device)
             .eval()
         )
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
 
-        inputs = feature_extractor(
+        inputs = image_processor(
             [np.zeros((3, 800, 1333)), np.zeros((3, 800, 1333))],
             segmentation_maps=[np.zeros((384, 384)).astype(np.float32), np.zeros((384, 384)).astype(np.float32)],
             return_tensors="pt",

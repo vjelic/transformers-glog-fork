@@ -301,7 +301,7 @@ class JukeboxPriorConfig(PretrainedConfig):
         spread=None,
         timing_dims=64,
         zero_out=False,
-        **kwargs
+        **kwargs,
     ):
         self.act_fn = act_fn
         self.alignment_head = alignment_head
@@ -353,6 +353,8 @@ class JukeboxPriorConfig(PretrainedConfig):
     def from_pretrained(
         cls, pretrained_model_name_or_path: Union[str, os.PathLike], level=0, **kwargs
     ) -> "PretrainedConfig":
+        cls._set_token_in_kwargs(kwargs)
+
         config_dict, kwargs = cls.get_config_dict(pretrained_model_name_or_path, **kwargs)
 
         # get the prior config dict if we are loading from JukeboxConfig
@@ -459,7 +461,7 @@ class JukeboxVQVAEConfig(PretrainedConfig):
         sample_length=1058304,
         init_scale=0.2,
         zero_out=False,
-        **kwargs
+        **kwargs,
     ):
         self.hop_fraction = hop_fraction
         self.conv_input_shape = conv_input_shape
@@ -486,6 +488,7 @@ class JukeboxVQVAEConfig(PretrainedConfig):
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> "PretrainedConfig":
+        cls._set_token_in_kwargs(kwargs)
 
         config_dict, kwargs = cls.get_config_dict(pretrained_model_name_or_path, **kwargs)
 
@@ -540,8 +543,6 @@ class JukeboxConfig(PretrainedConfig):
         metadata_conditioning (`bool`, *optional*, defaults to `True`):
             Whether or not to use metadata conditioning, corresponding to the artist, the genre and the min/maximum
             duration.
-        init_std (`float`, *optional*, defaults to 0.2):
-            Standard deviation used to initial the model.
 
     Example:
 
@@ -573,10 +574,8 @@ class JukeboxConfig(PretrainedConfig):
         max_duration=600.0,
         max_nb_genres=5,
         metadata_conditioning=True,
-        init_std=0.2,
         **kwargs,
     ):
-
         if vqvae_config is None:
             vqvae_config = {}
             logger.info("vqvae_config is None. initializing the JukeboxVQVAE with default values.")
@@ -598,7 +597,6 @@ class JukeboxConfig(PretrainedConfig):
 
         self.hop_fraction = self.vqvae_config.hop_fraction
 
-        self.init_std = init_std
         self.nb_priors = nb_priors
 
         # Metadata conditioning

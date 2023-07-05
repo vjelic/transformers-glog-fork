@@ -40,7 +40,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "google/bert_for_seq_generation_L-24_bbc_encoder"
 _CONFIG_FOR_DOC = "BertGenerationConfig"
-_TOKENIZER_FOR_DOC = "BertGenerationTokenizer"
 
 
 # Copied from transformers.models.bert.modeling_bert.BertSelfOutput with Bert->BertGeneration
@@ -386,6 +385,13 @@ class BertEncoder(nn.Module):
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
 
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
         next_decoder_cache = () if use_cache else None
         for i, layer_module in enumerate(self.layer):
             if output_hidden_states:
@@ -395,12 +401,6 @@ class BertEncoder(nn.Module):
             past_key_value = past_key_values[i] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
-
-                if use_cache:
-                    logger.warning(
-                        "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-                    )
-                    use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
@@ -465,7 +465,6 @@ def load_tf_weights_in_bert_generation(
     try:
         import numpy as np
         import tensorflow.compat.v1 as tf
-
         import tensorflow_hub as hub
         import tensorflow_text  # noqa: F401
 
@@ -557,7 +556,9 @@ class BertGenerationEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
 
     def forward(self, input_ids=None, position_ids=None, inputs_embeds=None, past_key_values_length=0):
         if input_ids is not None:
@@ -589,7 +590,6 @@ class BertGenerationPreTrainedModel(PreTrainedModel):
     config_class = BertGenerationConfig
     base_model_prefix = "bert"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -633,7 +633,7 @@ BERT_GENERATION_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`BertGenerationTokenizer`]. See [`PreTrainedTokenizer.__call__`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.__call__`] and
             [`PreTrainedTokenizer.encode`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -717,7 +717,6 @@ class BertGenerationEncoder(BertGenerationPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(BERT_GENERATION_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithPastAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
@@ -862,7 +861,7 @@ class BertGenerationOnlyLMHead(nn.Module):
     BERT_GENERATION_START_DOCSTRING,
 )
 class BertGenerationDecoder(BertGenerationPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["lm_head.decoder.weight", "lm_head.decoder.bias", "embeddings.position_ids"]
+    _tied_weights_keys = ["lm_head.decoder.weight", "lm_head.decoder.bias"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -929,10 +928,10 @@ class BertGenerationDecoder(BertGenerationPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import BertGenerationTokenizer, BertGenerationDecoder, BertGenerationConfig
+        >>> from transformers import AutoTokenizer, BertGenerationDecoder, BertGenerationConfig
         >>> import torch
 
-        >>> tokenizer = BertGenerationTokenizer.from_pretrained("google/bert_for_seq_generation_L-24_bbc_encoder")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/bert_for_seq_generation_L-24_bbc_encoder")
         >>> config = BertGenerationConfig.from_pretrained("google/bert_for_seq_generation_L-24_bbc_encoder")
         >>> config.is_decoder = True
         >>> model = BertGenerationDecoder.from_pretrained(

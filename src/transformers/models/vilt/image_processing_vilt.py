@@ -14,13 +14,9 @@
 # limitations under the License.
 """Image processor class for Vilt."""
 
-import warnings
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-
-from transformers.utils import is_vision_available
-from transformers.utils.generic import TensorType
 
 from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
 from ...image_transforms import PaddingMode, normalize, pad, rescale, resize, to_channel_dimension_format
@@ -32,11 +28,11 @@ from ...image_utils import (
     PILImageResampling,
     get_image_size,
     infer_channel_dimension_format,
-    is_batched,
+    make_list_of_images,
     to_numpy_array,
     valid_images,
 )
-from ...utils import logging
+from ...utils import TensorType, is_vision_available, logging
 
 
 if is_vision_available():
@@ -165,7 +161,7 @@ class ViltImageProcessor(BaseImageProcessor):
         image_mean: Optional[Union[float, List[float]]] = None,
         image_std: Optional[Union[float, List[float]]] = None,
         do_pad: bool = True,
-        **kwargs
+        **kwargs,
     ) -> None:
         if "pad_and_return_pixel_mask" in kwargs:
             do_pad = kwargs.pop("pad_and_return_pixel_mask")
@@ -204,7 +200,7 @@ class ViltImageProcessor(BaseImageProcessor):
         size_divisor: int = 32,
         resample: PILImageResampling = PILImageResampling.BICUBIC,
         data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """
         Resize an image.
@@ -238,7 +234,7 @@ class ViltImageProcessor(BaseImageProcessor):
         image: np.ndarray,
         scale: Union[int, float],
         data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Rescale an image by a scale factor. image = image * scale.
@@ -259,7 +255,7 @@ class ViltImageProcessor(BaseImageProcessor):
         mean: Union[float, List[float]],
         std: Union[float, List[float]],
         data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """
         Normalize an image. image = (image - image_mean) / image_std.
@@ -334,41 +330,6 @@ class ViltImageProcessor(BaseImageProcessor):
 
         return BatchFeature(data=data, tensor_type=return_tensors)
 
-    def pad_and_create_pixel_mask(
-        self,
-        pixel_values_list: List[ImageInput],
-        return_tensors: Optional[Union[str, TensorType]] = None,
-        data_format: Optional[ChannelDimension] = None,
-    ) -> BatchFeature:
-        """
-        Pads a batch of images with zeros to the size of largest height and width in the batch and returns their
-        corresponding pixel mask.
-
-        Args:
-            images (`List[np.ndarray]`):
-                Batch of images to pad.
-            return_tensors (`str` or `TensorType`, *optional*):
-                The type of tensors to return. Can be one of:
-                    - Unset: Return a list of `np.ndarray`.
-                    - `TensorType.TENSORFLOW` or `'tf'`: Return a batch of type `tf.Tensor`.
-                    - `TensorType.PYTORCH` or `'pt'`: Return a batch of type `torch.Tensor`.
-                    - `TensorType.NUMPY` or `'np'`: Return a batch of type `np.ndarray`.
-                    - `TensorType.JAX` or `'jax'`: Return a batch of type `jax.numpy.ndarray`.
-            data_format (`str` or `ChannelDimension`, *optional*):
-                The channel dimension format of the image. If not provided, it will be the same as the input image.
-        """
-        warnings.warn(
-            "This method is deprecated and will be removed in v4.26.0. Please use pad instead.", FutureWarning
-        )
-        # pad expects a list of np.ndarray, but the previous feature extractors expected torch tensors
-        images = [to_numpy_array(image) for image in pixel_values_list]
-        return self.pad(
-            images=images,
-            return_pixel_mask=True,
-            return_tensors=return_tensors,
-            data_format=data_format,
-        )
-
     def preprocess(
         self,
         images: ImageInput,
@@ -441,8 +402,7 @@ class ViltImageProcessor(BaseImageProcessor):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=False)
 
-        if not is_batched(images):
-            images = [images]
+        images = make_list_of_images(images)
 
         if not valid_images(images):
             raise ValueError(

@@ -18,21 +18,17 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
-from transformers.utils import is_vision_available
-from transformers.utils.generic import TensorType
-
 from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
-from ...image_transforms import resize, to_channel_dimension_format, to_pil_image
+from ...image_transforms import flip_channel_order, resize, to_channel_dimension_format, to_pil_image
 from ...image_utils import (
     ChannelDimension,
     ImageInput,
     PILImageResampling,
-    infer_channel_dimension_format,
-    is_batched,
+    make_list_of_images,
     to_numpy_array,
     valid_images,
 )
-from ...utils import is_pytesseract_available, logging, requires_backends
+from ...utils import TensorType, is_pytesseract_available, is_vision_available, logging, requires_backends
 
 
 if is_vision_available():
@@ -88,20 +84,6 @@ def apply_tesseract(image: np.ndarray, lang: Optional[str], tesseract_config: Op
     return words, normalized_boxes
 
 
-def flip_channel_order(image: np.ndarray, data_format: Optional[ChannelDimension] = None) -> np.ndarray:
-    input_data_format = infer_channel_dimension_format(image)
-    if input_data_format == ChannelDimension.LAST:
-        image = image[..., ::-1]
-    elif input_data_format == ChannelDimension.FIRST:
-        image = image[:, ::-1, ...]
-    else:
-        raise ValueError(f"Unsupported channel dimension: {input_data_format}")
-
-    if data_format is not None:
-        image = to_channel_dimension_format(image, data_format)
-    return image
-
-
 class LayoutLMv2ImageProcessor(BaseImageProcessor):
     r"""
     Constructs a LayoutLMv2 image processor.
@@ -136,7 +118,7 @@ class LayoutLMv2ImageProcessor(BaseImageProcessor):
         apply_ocr: bool = True,
         ocr_lang: Optional[str] = None,
         tesseract_config: Optional[str] = "",
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         size = size if size is not None else {"height": 224, "width": 224}
@@ -155,7 +137,7 @@ class LayoutLMv2ImageProcessor(BaseImageProcessor):
         size: Dict[str, int],
         resample: PILImageResampling = PILImageResampling.BILINEAR,
         data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """
         Resize an image to `(size["height"], size["width"])`.
@@ -230,8 +212,7 @@ class LayoutLMv2ImageProcessor(BaseImageProcessor):
         ocr_lang = ocr_lang if ocr_lang is not None else self.ocr_lang
         tesseract_config = tesseract_config if tesseract_config is not None else self.tesseract_config
 
-        if not is_batched(images):
-            images = [images]
+        images = make_list_of_images(images)
 
         if not valid_images(images):
             raise ValueError(

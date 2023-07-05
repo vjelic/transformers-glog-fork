@@ -16,7 +16,6 @@
 
 
 import math
-import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -26,7 +25,6 @@ from torch import Tensor, nn
 from ...activations import ACT2FN
 from ...modeling_outputs import BaseModelOutput, BaseModelOutputWithCrossAttentions, Seq2SeqModelOutput
 from ...modeling_utils import PreTrainedModel
-from ...pytorch_utils import torch_int_div
 from ...utils import (
     ModelOutput,
     add_start_docstrings,
@@ -38,6 +36,7 @@ from ...utils import (
     replace_return_docstrings,
     requires_backends,
 )
+from ..auto import AutoBackbone
 from .configuration_table_transformer import TableTransformerConfig
 
 
@@ -255,46 +254,57 @@ def replace_batch_norm(m, name=""):
         replace_batch_norm(ch, n)
 
 
-# Copied from transformers.models.detr.modeling_detr.DetrTimmConvEncoder with Detr->TableTransformer
-class TableTransformerTimmConvEncoder(nn.Module):
+# Copied from transformers.models.detr.modeling_detr.DetrConvEncoder with Detr->TableTransformer
+class TableTransformerConvEncoder(nn.Module):
     """
-    Convolutional encoder (backbone) from the timm library.
+    Convolutional backbone, using either the AutoBackbone API or one from the timm library.
 
     nn.BatchNorm2d layers are replaced by TableTransformerFrozenBatchNorm2d as defined above.
 
     """
 
-    def __init__(self, name: str, dilation: bool, use_pretrained_backbone: bool, num_channels: int = 3):
+    def __init__(self, config):
         super().__init__()
 
-        kwargs = {}
-        if dilation:
-            kwargs["output_stride"] = 16
+        self.config = config
 
-        requires_backends(self, ["timm"])
+        if config.use_timm_backbone:
+            requires_backends(self, ["timm"])
+            kwargs = {}
+            if config.dilation:
+                kwargs["output_stride"] = 16
+            backbone = create_model(
+                config.backbone,
+                pretrained=config.use_pretrained_backbone,
+                features_only=True,
+                out_indices=(1, 2, 3, 4),
+                in_chans=config.num_channels,
+                **kwargs,
+            )
+        else:
+            backbone = AutoBackbone.from_config(config.backbone_config)
 
-        backbone = create_model(
-            name,
-            pretrained=use_pretrained_backbone,
-            features_only=True,
-            out_indices=(1, 2, 3, 4),
-            in_chans=num_channels,
-            **kwargs,
-        )
         # replace batch norm by frozen batch norm
         with torch.no_grad():
             replace_batch_norm(backbone)
         self.model = backbone
-        self.intermediate_channel_sizes = self.model.feature_info.channels()
+        self.intermediate_channel_sizes = (
+            self.model.feature_info.channels() if config.use_timm_backbone else self.model.channels
+        )
 
-        if "resnet" in name:
+        backbone_model_type = config.backbone if config.use_timm_backbone else config.backbone_config.model_type
+        if "resnet" in backbone_model_type:
             for name, parameter in self.model.named_parameters():
-                if "layer2" not in name and "layer3" not in name and "layer4" not in name:
-                    parameter.requires_grad_(False)
+                if config.use_timm_backbone:
+                    if "layer2" not in name and "layer3" not in name and "layer4" not in name:
+                        parameter.requires_grad_(False)
+                else:
+                    if "stage.1" not in name and "stage.2" not in name and "stage.3" not in name:
+                        parameter.requires_grad_(False)
 
     def forward(self, pixel_values: torch.Tensor, pixel_mask: torch.Tensor):
         # send pixel_values through the model to get list of feature maps
-        features = self.model(pixel_values)
+        features = self.model(pixel_values) if self.config.use_timm_backbone else self.model(pixel_values).feature_maps
 
         out = []
         for feature_map in features:
@@ -368,7 +378,7 @@ class TableTransformerSinePositionEmbedding(nn.Module):
             x_embed = x_embed / (x_embed[:, :, -1:] + 1e-6) * self.scale
 
         dim_t = torch.arange(self.embedding_dim, dtype=torch.float32, device=pixel_values.device)
-        dim_t = self.temperature ** (2 * torch_int_div(dim_t, 2) / self.embedding_dim)
+        dim_t = self.temperature ** (2 * torch.div(dim_t, 2, rounding_mode="floor") / self.embedding_dim)
 
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
@@ -429,7 +439,6 @@ class TableTransformerAttention(nn.Module):
         embed_dim: int,
         num_heads: int,
         dropout: float = 0.0,
-        is_decoder: bool = False,
         bias: bool = True,
     ):
         super().__init__()
@@ -575,7 +584,7 @@ class TableTransformerEncoderLayer(nn.Module):
     ):
         """
         Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(seq_len, batch, embed_dim)`
+            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
             attention_mask (`torch.FloatTensor`): attention mask of size
                 `(batch, 1, target_len, source_len)` where padding elements are indicated by very large negative
                 values.
@@ -631,7 +640,6 @@ class TableTransformerDecoderLayer(nn.Module):
             embed_dim=self.embed_dim,
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
-            is_decoder=True,
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -642,7 +650,6 @@ class TableTransformerDecoderLayer(nn.Module):
             self.embed_dim,
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
-            is_decoder=True,
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
@@ -661,7 +668,7 @@ class TableTransformerDecoderLayer(nn.Module):
     ):
         """
         Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(seq_len, batch, embed_dim)`
+            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
             attention_mask (`torch.FloatTensor`): attention mask of size
                 `(batch, 1, target_len, source_len)` where padding elements are indicated by very large negative
                 values.
@@ -672,7 +679,7 @@ class TableTransformerDecoderLayer(nn.Module):
                 position embeddings that are added to the queries and keys
             in the self-attention layer.
             encoder_hidden_states (`torch.FloatTensor`):
-                cross attention input to the layer of shape `(seq_len, batch, embed_dim)`
+                cross attention input to the layer of shape `(batch, seq_len, embed_dim)`
             encoder_attention_mask (`torch.FloatTensor`): encoder attention mask of size
                 `(batch, 1, target_len, source_len)` where padding elements are indicated by very large negative
                 values.
@@ -912,8 +919,13 @@ class TableTransformerEncoder(TableTransformerPreTrainedModel):
             if output_hidden_states:
                 encoder_states = encoder_states + (hidden_states,)
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
-            dropout_probability = random.uniform(0, 1)
-            if self.training and (dropout_probability < self.layerdrop):  # skip the layer
+            to_drop = False
+            if self.training:
+                dropout_probability = torch.rand([])
+                if dropout_probability < self.layerdrop:  # skip the layer
+                    to_drop = True
+
+            if to_drop:
                 layer_outputs = (None, None)
             else:
                 # we add position_embeddings as extra input to the encoder_layer
@@ -1054,9 +1066,10 @@ class TableTransformerDecoder(TableTransformerPreTrainedModel):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
-            dropout_probability = random.uniform(0, 1)
-            if self.training and (dropout_probability < self.layerdrop):
-                continue
+            if self.training:
+                dropout_probability = torch.rand([])
+                if dropout_probability < self.layerdrop:
+                    continue
 
             if self.gradient_checkpointing and self.training:
 
@@ -1136,9 +1149,7 @@ class TableTransformerModel(TableTransformerPreTrainedModel):
         super().__init__(config)
 
         # Create backbone + positional encoding
-        backbone = TableTransformerTimmConvEncoder(
-            config.backbone, config.dilation, config.use_pretrained_backbone, config.num_channels
-        )
+        backbone = TableTransformerConvEncoder(config)
         position_embeddings = build_position_encoding(config)
         self.backbone = TableTransformerConvModel(backbone, position_embeddings)
 

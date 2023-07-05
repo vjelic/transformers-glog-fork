@@ -15,6 +15,9 @@
 # limitations under the License.
 """ TF 2.0 T5 model."""
 
+
+from __future__ import annotations
+
 import copy
 import itertools
 import math
@@ -40,10 +43,8 @@ from ...modeling_tf_utils import (
     keras_serializable,
     unpack_inputs,
 )
-from ...tf_utils import shape_list, stable_softmax
+from ...tf_utils import check_embeddings_within_bounds, shape_list, stable_softmax
 from ...utils import (
-    DUMMY_INPUTS,
-    DUMMY_MASK,
     ContextManagers,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -56,7 +57,6 @@ from .configuration_t5 import T5Config
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "T5Config"
-_TOKENIZER_FOR_DOC = "T5Tokenizer"
 
 TF_T5_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "t5-small",
@@ -548,7 +548,6 @@ class TFT5Block(tf.keras.layers.Layer):
         output_attentions=False,
         training=False,
     ):
-
         if past_key_value is not None:
             assert self.is_decoder, "Only decoder can use `past_key_values`"
             expected_num_past_key_values = 2 if encoder_hidden_states is None else 4
@@ -664,7 +663,6 @@ class TFT5MainLayer(tf.keras.layers.Layer):
         return_dict=None,
         training=False,
     ) -> Tuple:
-
         if input_ids is not None and inputs_embeds is not None:
             err_msg_prefix = "decoder_" if self.is_decoder else ""
             raise ValueError(
@@ -689,16 +687,7 @@ class TFT5MainLayer(tf.keras.layers.Layer):
             if hasattr(self.embed_tokens, "load_weight_prefix"):
                 context.append(tf.name_scope(self.embed_tokens.load_weight_prefix + "/"))
             with ContextManagers(context):
-                # Note: tf.gather, on which the embedding layer is based, won't check positive out of bound
-                # indices on GPU, returning zeros instead. This is a dangerous silent behavior.
-                tf.debugging.assert_less(
-                    input_ids,
-                    tf.cast(self.embed_tokens.input_dim, dtype=input_ids.dtype),
-                    message=(
-                        "input_ids must be smaller than the embedding layer's input dimension (got"
-                        f" {tf.math.reduce_max(input_ids)} >= {self.embed_tokens.input_dim})"
-                    ),
-                )
+                check_embeddings_within_bounds(input_ids, self.embed_tokens.input_dim)
                 inputs_embeds = self.embed_tokens(input_ids)
 
         batch_size, seq_length = input_shape
@@ -875,32 +864,6 @@ class TFT5PreTrainedModel(TFPreTrainedModel):
     base_model_prefix = "transformer"
     # names with a '.' represents the authorized unexpected/missing layers when a TF model is loaded from a PT model
     _keys_to_ignore_on_load_unexpected = [r"decoder\Wblock[\W_0]+layer[\W_1]+EncDecAttention\Wrelative_attention_bias"]
-
-    @property
-    def dummy_inputs(self):
-        inputs = tf.constant(DUMMY_INPUTS, dtype=tf.int32)
-        input_mask = tf.constant(DUMMY_MASK, dtype=tf.int32)
-        dummy_inputs = {
-            "input_ids": inputs,
-            "decoder_input_ids": inputs,
-            "decoder_attention_mask": input_mask,
-        }
-        return dummy_inputs
-
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None), tf.int32, name="attention_mask"),
-                "decoder_input_ids": tf.TensorSpec((None, None), tf.int32, name="decoder_input_ids"),
-                "decoder_attention_mask": tf.TensorSpec((None, None), tf.int32, name="decoder_attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
 
     def get_input_embeddings(self):
         return self.shared
@@ -1081,7 +1044,7 @@ T5_ENCODER_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
             should be able to pad the inputs on the right or the left.
 
-            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.__call__`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.__call__`] and
             [`PreTrainedTokenizer.encode`] for details.
 
             To know more on how to prepare `inputs` for pre-training take a look at [T5 Training](./t5#training).
@@ -1160,16 +1123,16 @@ class TFT5Model(TFT5PreTrainedModel):
     @replace_return_docstrings(output_type=TFSeq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_input_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_outputs: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        decoder_input_ids: np.ndarray | tf.Tensor | None = None,
+        decoder_attention_mask: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        decoder_head_mask: np.ndarray | tf.Tensor | None = None,
+        encoder_outputs: np.ndarray | tf.Tensor | None = None,
         past_key_values: Optional[Tuple[Tuple[Union[np.ndarray, tf.Tensor]]]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        decoder_inputs_embeds: np.ndarray | tf.Tensor | None = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -1182,9 +1145,9 @@ class TFT5Model(TFT5PreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import T5Tokenizer, TFT5Model
+        >>> from transformers import AutoTokenizer, TFT5Model
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> tokenizer = AutoTokenizer.from_pretrained("t5-small")
         >>> model = TFT5Model.from_pretrained("t5-small")
 
         >>> input_ids = tokenizer(
@@ -1258,25 +1221,6 @@ class TFT5Model(TFT5PreTrainedModel):
             encoder_attentions=encoder_outputs.attentions,
         )
 
-    def serving_output(self, output):
-        pkv = tf.convert_to_tensor(output.past_key_values[1:]) if self.config.use_cache else None
-        dec_hs = tf.convert_to_tensor(output.decoder_hidden_states) if self.config.output_hidden_states else None
-        dec_attns = tf.convert_to_tensor(output.decoder_attentions) if self.config.output_attentions else None
-        cross_attns = tf.convert_to_tensor(output.cross_attentions) if self.config.output_attentions else None
-        enc_hs = tf.convert_to_tensor(output.encoder_hidden_states) if self.config.output_hidden_states else None
-        enc_attns = tf.convert_to_tensor(output.encoder_attentions) if self.config.output_attentions else None
-
-        return TFSeq2SeqModelOutput(
-            last_hidden_state=output.last_hidden_state,
-            past_key_values=pkv,
-            decoder_hidden_states=dec_hs,
-            decoder_attentions=dec_attns,
-            encoder_last_hidden_state=output.encoder_last_hidden_state,
-            cross_attentions=cross_attns,
-            encoder_hidden_states=enc_hs,
-            encoder_attentions=enc_attns,
-        )
-
 
 @add_start_docstrings("""T5 Model with a `language modeling` head on top.""", T5_START_DOCSTRING)
 class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModelingLoss):
@@ -1339,17 +1283,17 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
     @replace_return_docstrings(output_type=TFSeq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_input_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_outputs: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        decoder_input_ids: np.ndarray | tf.Tensor | None = None,
+        decoder_attention_mask: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        decoder_head_mask: np.ndarray | tf.Tensor | None = None,
+        encoder_outputs: np.ndarray | tf.Tensor | None = None,
         past_key_values: Optional[Tuple[Tuple[Union[np.ndarray, tf.Tensor]]]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        decoder_inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        labels: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        decoder_inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        labels: np.ndarray | tf.Tensor | None = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -1366,9 +1310,9 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
         Examples:
 
         ```python
-        >>> from transformers import T5Tokenizer, TFT5ForConditionalGeneration
+        >>> from transformers import AutoTokenizer, TFT5ForConditionalGeneration
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> tokenizer = AutoTokenizer.from_pretrained("t5-small")
         >>> model = TFT5ForConditionalGeneration.from_pretrained("t5-small")
 
         >>> # training
@@ -1506,9 +1450,8 @@ class TFT5ForConditionalGeneration(TFT5PreTrainedModel, TFCausalLanguageModeling
         decoder_head_mask=None,
         use_cache=None,
         encoder_outputs=None,
-        **kwargs
+        **kwargs,
     ):
-
         # cut decoder_input_ids if past is used
         if past_key_values is not None:
             input_ids = input_ids[:, -1:]
@@ -1549,10 +1492,6 @@ class TFT5EncoderModel(TFT5PreTrainedModel):
         encoder_config.use_cache = False
         self.encoder = TFT5MainLayer(encoder_config, self.shared, name="encoder")
 
-    @property
-    def dummy_inputs(self):
-        return {"input_ids": tf.constant(DUMMY_INPUTS, dtype=tf.int32)}
-
     def get_encoder(self):
         return self.encoder
 
@@ -1561,10 +1500,10 @@ class TFT5EncoderModel(TFT5PreTrainedModel):
     @replace_return_docstrings(output_type=TFBaseModelOutput, config_class=_CONFIG_FOR_DOC)
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -1576,9 +1515,9 @@ class TFT5EncoderModel(TFT5PreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import T5Tokenizer, TFT5EncoderModel
+        >>> from transformers import AutoTokenizer, TFT5EncoderModel
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        >>> tokenizer = AutoTokenizer.from_pretrained("t5-small")
         >>> model = TFT5EncoderModel.from_pretrained("t5-small")
 
         >>> input_ids = tokenizer(
@@ -1610,23 +1549,3 @@ class TFT5EncoderModel(TFT5PreTrainedModel):
             hidden_states=encoder_outputs.hidden_states,
             attentions=encoder_outputs.attentions,
         )
-
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None), tf.int32, name="attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
-
-    # Copied from transformers.models.distilbert.modeling_tf_distilbert.TFDistilBertModel.serving_output
-    def serving_output(self, output):
-        hs = tf.convert_to_tensor(output.hidden_states) if self.config.output_hidden_states else None
-        attns = tf.convert_to_tensor(output.attentions) if self.config.output_attentions else None
-
-        return TFBaseModelOutput(last_hidden_state=output.last_hidden_state, hidden_states=hs, attentions=attns)

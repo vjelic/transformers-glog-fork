@@ -15,6 +15,8 @@
 """ Testing suite for the TensorFlow MobileViT model. """
 
 
+from __future__ import annotations
+
 import inspect
 import unittest
 
@@ -24,6 +26,7 @@ from transformers.testing_utils import require_tf, slow
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_tf_common import TFModelTesterMixin, floats_tensor, ids_tensor
+from ...test_pipeline_mixin import PipelineTesterMixin
 
 
 if is_tf_available():
@@ -37,7 +40,7 @@ if is_tf_available():
 if is_vision_available():
     from PIL import Image
 
-    from transformers import MobileViTFeatureExtractor
+    from transformers import MobileViTImageProcessor
 
 
 class TFMobileViTConfigTester(ConfigTester):
@@ -154,7 +157,7 @@ class TFMobileViTModelTester:
 
 
 @require_tf
-class MobileViTModelTest(TFModelTesterMixin, unittest.TestCase):
+class TFMobileViTModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """
     Here we also overwrite some of the tests of test_modeling_common.py, as MobileViT does not use input_ids, inputs_embeds,
     attention_mask and seq_length.
@@ -164,6 +167,11 @@ class MobileViTModelTest(TFModelTesterMixin, unittest.TestCase):
         (TFMobileViTModel, TFMobileViTForImageClassification, TFMobileViTForSemanticSegmentation)
         if is_tf_available()
         else ()
+    )
+    pipeline_model_mapping = (
+        {"feature-extraction": TFMobileViTModel, "image-classification": TFMobileViTForImageClassification}
+        if is_tf_available()
+        else {}
     )
 
     test_pruning = False
@@ -189,10 +197,6 @@ class MobileViTModelTest(TFModelTesterMixin, unittest.TestCase):
 
     @unittest.skip(reason="MobileViT does not output attentions")
     def test_attention_outputs(self):
-        pass
-
-    @unittest.skip("Test was written for TF 1.x and isn't really relevant here")
-    def test_compile_tf_model(self):
         pass
 
     def test_forward_signature(self):
@@ -268,6 +272,7 @@ class MobileViTModelTest(TFModelTesterMixin, unittest.TestCase):
         not is_tf_available() or len(tf.config.list_physical_devices("GPU")) == 0,
         reason="TF does not support backprop for grouped convolutions on CPU.",
     )
+    @slow
     def test_keras_fit(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
 
@@ -294,7 +299,7 @@ class MobileViTModelTest(TFModelTesterMixin, unittest.TestCase):
                 # The number of elements in the loss should be the same as the number of elements in the label
                 prepared_for_class = self._prepare_for_class(inputs_dict.copy(), model_class, return_labels=True)
                 added_label = prepared_for_class[
-                    sorted(list(prepared_for_class.keys() - inputs_dict.keys()), reverse=True)[0]
+                    sorted(prepared_for_class.keys() - inputs_dict.keys(), reverse=True)[0]
                 ]
                 expected_loss_size = added_label.shape.as_list()[:1]
 
@@ -376,9 +381,9 @@ class TFMobileViTModelIntegrationTest(unittest.TestCase):
     def test_inference_image_classification_head(self):
         model = TFMobileViTForImageClassification.from_pretrained("apple/mobilevit-xx-small")
 
-        feature_extractor = MobileViTFeatureExtractor.from_pretrained("apple/mobilevit-xx-small")
+        image_processor = MobileViTImageProcessor.from_pretrained("apple/mobilevit-xx-small")
         image = prepare_img()
-        inputs = feature_extractor(images=image, return_tensors="tf")
+        inputs = image_processor(images=image, return_tensors="tf")
 
         # forward pass
         outputs = model(**inputs, training=False)
@@ -396,10 +401,10 @@ class TFMobileViTModelIntegrationTest(unittest.TestCase):
         # `from_pt` will be removed
         model = TFMobileViTForSemanticSegmentation.from_pretrained("apple/deeplabv3-mobilevit-xx-small")
 
-        feature_extractor = MobileViTFeatureExtractor.from_pretrained("apple/deeplabv3-mobilevit-xx-small")
+        image_processor = MobileViTImageProcessor.from_pretrained("apple/deeplabv3-mobilevit-xx-small")
 
         image = prepare_img()
-        inputs = feature_extractor(images=image, return_tensors="tf")
+        inputs = image_processor(images=image, return_tensors="tf")
 
         # forward pass
         outputs = model(inputs.pixel_values, training=False)

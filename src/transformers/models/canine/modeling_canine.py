@@ -51,7 +51,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "google/canine-s"
 _CONFIG_FOR_DOC = "CanineConfig"
-_TOKENIZER_FOR_DOC = "CanineTokenizer"
 
 CANINE_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "google/canine-s",
@@ -217,7 +216,9 @@ class CanineEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
         self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
 
     def _hash_bucket_tensors(self, input_ids, num_hashes: int, num_buckets: int):
@@ -313,7 +314,6 @@ class CharactersToMolecules(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
     def forward(self, char_encoding: torch.Tensor) -> torch.Tensor:
-
         # `cls_encoding`: [batch, 1, hidden_size]
         cls_encoding = char_encoding[:, 0:1, :]
 
@@ -902,7 +902,6 @@ class CaninePreTrainedModel(PreTrainedModel):
     load_tf_weights = load_tf_weights_in_canine
     base_model_prefix = "canine"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -941,7 +940,7 @@ CANINE_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`CanineTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -1100,7 +1099,6 @@ class CanineModel(CaninePreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CANINE_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=CanineModelOutputWithPooling,
         config_class=_CONFIG_FOR_DOC,
@@ -1282,12 +1280,9 @@ class CanineForSequenceClassification(CaninePreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CANINE_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
-        checkpoint="vicl/canine-c-finetuned-cola",
+        checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=SequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
-        expected_output="'LABEL_0'",
-        expected_loss=0.82,
     )
     def forward(
         self,
@@ -1381,7 +1376,6 @@ class CanineForMultipleChoice(CaninePreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CANINE_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=MultipleChoiceModelOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1496,10 +1490,10 @@ class CanineForTokenClassification(CaninePreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import CanineTokenizer, CanineForTokenClassification
+        >>> from transformers import AutoTokenizer, CanineForTokenClassification
         >>> import torch
 
-        >>> tokenizer = CanineTokenizer.from_pretrained("google/canine-s")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/canine-s")
         >>> model = CanineForTokenClassification.from_pretrained("google/canine-s")
 
         >>> inputs = tokenizer(
@@ -1579,7 +1573,6 @@ class CanineForQuestionAnswering(CaninePreTrainedModel):
 
     @add_start_docstrings_to_model_forward(CANINE_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint="Splend1dchan/canine-c-squad",
         output_type=QuestionAnsweringModelOutput,
         config_class=_CONFIG_FOR_DOC,

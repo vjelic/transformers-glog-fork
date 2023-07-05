@@ -15,12 +15,13 @@
 
 import argparse
 import glob
-import importlib.util
 import os
 import re
 
 import black
 from doc_builder.style_doc import style_docstrings_in_code
+
+from transformers.utils import direct_transformers_import
 
 
 # All paths are set with the intent you should run this script from the root of the repo with the command
@@ -98,12 +99,7 @@ LOCALIZED_READMES = {
 
 
 # This is to make sure the transformers module imported is the one in the repo.
-spec = importlib.util.spec_from_file_location(
-    "transformers",
-    os.path.join(TRANSFORMERS_PATH, "__init__.py"),
-    submodule_search_locations=[TRANSFORMERS_PATH],
-)
-transformers_module = spec.loader.load_module()
+transformers_module = direct_transformers_import(TRANSFORMERS_PATH)
 
 
 def _should_continue(line, indent):
@@ -177,7 +173,7 @@ def blackify(code):
     has_indent = len(get_indent(code)) > 0
     if has_indent:
         code = f"class Bla:\n{code}"
-    mode = black.Mode(target_versions={black.TargetVersion.PY35}, line_length=119, preview=True)
+    mode = black.Mode(target_versions={black.TargetVersion.PY37}, line_length=119)
     result = black.format_str(code, mode=mode)
     result, _ = style_docstrings_in_code(result)
     return result[len("class Bla:\n") :] if has_indent else result
@@ -366,7 +362,7 @@ def convert_to_localized_md(model_list, localized_model_list, format_str):
     model_keys = [re.search(r"\*\*\[([^\]]*)", line).groups()[0] for line in model_list.strip().split("\n")]
 
     # We exclude keys in localized README not in the main one.
-    readmes_match = not any([k not in model_keys for k in localized_model_index])
+    readmes_match = not any(k not in model_keys for k in localized_model_index)
     localized_model_index = {k: v for k, v in localized_model_index.items() if k in model_keys}
 
     for model in model_list.strip().split("\n"):
@@ -389,7 +385,7 @@ def convert_to_localized_md(model_list, localized_model_list, format_str):
 
     sorted_index = sorted(localized_model_index.items(), key=lambda x: x[0].lower())
 
-    return readmes_match, "\n".join(map(lambda x: x[1], sorted_index)) + "\n"
+    return readmes_match, "\n".join((x[1] for x in sorted_index)) + "\n"
 
 
 def convert_readme_to_index(model_list):
@@ -444,7 +440,7 @@ def check_model_list_copy(overwrite=False, max_per_line=119):
 
     # If the introduction or the conclusion of the list change, the prompts may need to be updated.
     index_list, start_index, end_index, lines = _find_text_in_file(
-        filename=os.path.join(PATH_TO_DOCS, "index.mdx"),
+        filename=os.path.join(PATH_TO_DOCS, "index.md"),
         start_prompt="<!--This list is updated automatically from the README",
         end_prompt="### Supported frameworks",
     )
@@ -468,11 +464,11 @@ def check_model_list_copy(overwrite=False, max_per_line=119):
     converted_md_list = convert_readme_to_index(md_list)
     if converted_md_list != index_list:
         if overwrite:
-            with open(os.path.join(PATH_TO_DOCS, "index.mdx"), "w", encoding="utf-8", newline="\n") as f:
+            with open(os.path.join(PATH_TO_DOCS, "index.md"), "w", encoding="utf-8", newline="\n") as f:
                 f.writelines(lines[:start_index] + [converted_md_list] + lines[end_index:])
         else:
             raise ValueError(
-                "The model list in the README changed and the list in `index.mdx` has not been updated. Run "
+                "The model list in the README changed and the list in `index.md` has not been updated. Run "
                 "`make fix-copies` to fix this."
             )
 
@@ -506,6 +502,7 @@ SPECIAL_MODEL_NAMES = {
     "OpenAI GPT-2": "GPT-2",
     "OpenAI GPT": "GPT",
     "Perceiver": "Perceiver IO",
+    "SAM": "Segment Anything",
     "ViT": "Vision Transformer (ViT)",
 }
 
@@ -520,6 +517,7 @@ MODELS_NOT_IN_README = [
     "Speech Encoder decoder",
     "Speech2Text",
     "Speech2Text2",
+    "TimmBackbone",
     "Vision Encoder decoder",
     "VisionTextDualEncoder",
 ]

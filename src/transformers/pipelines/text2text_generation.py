@@ -78,7 +78,7 @@ class Text2TextGenerationPipeline(Pipeline):
         clean_up_tokenization_spaces=None,
         truncation=None,
         stop_sequence=None,
-        **generate_kwargs
+        **generate_kwargs,
     ):
         preprocess_params = {}
         if truncation is not None:
@@ -273,7 +273,8 @@ class SummarizationPipeline(Text2TextGenerationPipeline):
 
         if input_length < max_length:
             logger.warning(
-                f"Your max_length is set to {max_length}, but you input_length is only {input_length}. You might "
+                f"Your max_length is set to {max_length}, but your input_length is only {input_length}. Since this is "
+                "a summarization task, where outputs shorter than the input are typically wanted, you might "
                 f"consider decreasing max_length manually, e.g. summarizer('...', max_length={input_length//2})"
             )
 

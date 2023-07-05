@@ -27,18 +27,19 @@ from transformers.testing_utils import require_timm, require_torch_gpu, require_
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin, _config_zero_init, floats_tensor
+from ...test_pipeline_mixin import PipelineTesterMixin
 
 
 if is_timm_available():
     import torch
 
-    from transformers import DeformableDetrForObjectDetection, DeformableDetrModel
+    from transformers import DeformableDetrForObjectDetection, DeformableDetrModel, ResNetConfig
 
 
 if is_vision_available():
     from PIL import Image
 
-    from transformers import AutoFeatureExtractor
+    from transformers import AutoImageProcessor
 
 
 class DeformableDetrModelTester:
@@ -164,10 +165,34 @@ class DeformableDetrModelTester:
         self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_queries, self.num_labels))
         self.parent.assertEqual(result.pred_boxes.shape, (self.batch_size, self.num_queries, 4))
 
+    def create_and_check_no_timm_backbone(self, config, pixel_values, pixel_mask, labels):
+        config.use_timm_backbone = False
+        config.backbone_config = ResNetConfig()
+        model = DeformableDetrForObjectDetection(config=config)
+        model.to(torch_device)
+        model.eval()
+
+        result = model(pixel_values=pixel_values, pixel_mask=pixel_mask)
+        result = model(pixel_values)
+
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_queries, self.num_labels))
+        self.parent.assertEqual(result.pred_boxes.shape, (self.batch_size, self.num_queries, 4))
+
+        result = model(pixel_values=pixel_values, pixel_mask=pixel_mask, labels=labels)
+
+        self.parent.assertEqual(result.loss.shape, ())
+        self.parent.assertEqual(result.logits.shape, (self.batch_size, self.num_queries, self.num_labels))
+        self.parent.assertEqual(result.pred_boxes.shape, (self.batch_size, self.num_queries, 4))
+
 
 @require_timm
-class DeformableDetrModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
+class DeformableDetrModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (DeformableDetrModel, DeformableDetrForObjectDetection) if is_timm_available() else ()
+    pipeline_model_mapping = (
+        {"feature-extraction": DeformableDetrModel, "object-detection": DeformableDetrForObjectDetection}
+        if is_timm_available()
+        else {}
+    )
     is_encoder_decoder = True
     test_torchscript = False
     test_pruning = False
@@ -220,6 +245,10 @@ class DeformableDetrModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.
     def test_deformable_detr_object_detection_head_model(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_deformable_detr_object_detection_head_model(*config_and_inputs)
+
+    def test_deformable_detr_no_timm_backbone(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_no_timm_backbone(*config_and_inputs)
 
     @unittest.skip(reason="Deformable DETR does not use inputs_embeds")
     def test_inputs_embeds(self):
@@ -534,15 +563,15 @@ def prepare_img():
 @slow
 class DeformableDetrModelIntegrationTests(unittest.TestCase):
     @cached_property
-    def default_feature_extractor(self):
-        return AutoFeatureExtractor.from_pretrained("SenseTime/deformable-detr") if is_vision_available() else None
+    def default_image_processor(self):
+        return AutoImageProcessor.from_pretrained("SenseTime/deformable-detr") if is_vision_available() else None
 
     def test_inference_object_detection_head(self):
         model = DeformableDetrForObjectDetection.from_pretrained("SenseTime/deformable-detr").to(torch_device)
 
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        encoding = feature_extractor(images=image, return_tensors="pt").to(torch_device)
+        encoding = image_processor(images=image, return_tensors="pt").to(torch_device)
         pixel_values = encoding["pixel_values"].to(torch_device)
         pixel_mask = encoding["pixel_mask"].to(torch_device)
 
@@ -566,7 +595,7 @@ class DeformableDetrModelIntegrationTests(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs.pred_boxes[0, :3, :3], expected_boxes, atol=1e-4))
 
         # verify postprocessing
-        results = feature_extractor.post_process_object_detection(
+        results = image_processor.post_process_object_detection(
             outputs, threshold=0.3, target_sizes=[image.size[::-1]]
         )[0]
         expected_scores = torch.tensor([0.7999, 0.7894, 0.6331, 0.4720, 0.4382]).to(torch_device)
@@ -583,9 +612,9 @@ class DeformableDetrModelIntegrationTests(unittest.TestCase):
             "SenseTime/deformable-detr-with-box-refine-two-stage"
         ).to(torch_device)
 
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        encoding = feature_extractor(images=image, return_tensors="pt").to(torch_device)
+        encoding = image_processor(images=image, return_tensors="pt").to(torch_device)
         pixel_values = encoding["pixel_values"].to(torch_device)
         pixel_mask = encoding["pixel_mask"].to(torch_device)
 
@@ -610,9 +639,9 @@ class DeformableDetrModelIntegrationTests(unittest.TestCase):
 
     @require_torch_gpu
     def test_inference_object_detection_head_equivalence_cpu_gpu(self):
-        feature_extractor = self.default_feature_extractor
+        image_processor = self.default_image_processor
         image = prepare_img()
-        encoding = feature_extractor(images=image, return_tensors="pt")
+        encoding = image_processor(images=image, return_tensors="pt")
         pixel_values = encoding["pixel_values"]
         pixel_mask = encoding["pixel_mask"]
 

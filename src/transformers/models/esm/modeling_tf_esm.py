@@ -14,6 +14,10 @@
 # limitations under the License.
 """ PyTorch ESM model."""
 
+
+from __future__ import annotations
+
+import os
 from typing import Optional, Tuple, Union
 
 import numpy as np
@@ -36,11 +40,10 @@ from ...modeling_tf_utils import (
     TFSequenceClassificationLoss,
     TFTokenClassificationLoss,
     get_initializer,
-    get_tf_activation,
     shape_list,
     unpack_inputs,
 )
-from ...tf_utils import stable_softmax
+from ...tf_utils import check_embeddings_within_bounds, stable_softmax
 from ...utils import logging
 from .configuration_esm import EsmConfig
 
@@ -49,7 +52,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "facebook/esm2_t6_8M_UR50D"
 _CONFIG_FOR_DOC = "EsmConfig"
-_TOKENIZER_FOR_DOC = "EsmTokenizer"
 
 TF_ESM_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "facebook/esm2_t6_8M_UR50D",
@@ -108,7 +110,7 @@ class TFRotaryEmbedding(Layer):
     def build(self, input_shape):
         super().build(input_shape)
         self.inv_freq = self.add_weight(
-            "inv_freq", shape=(self.dim // 2,), dtype=tf.float32, initializer=get_initializer(1.0)
+            "inv_freq", shape=(self.dim // 2,), dtype=tf.float32, initializer=get_initializer(1.0), trainable=False
         )
         self.inv_freq.assign(
             1.0 / (10000 ** (tf.range(start=0, limit=self.dim, delta=2, dtype=tf.float32) / self.dim))
@@ -202,7 +204,7 @@ class TFEsmEmbeddings(Layer):
         self.padding_idx = config.pad_token_id
         self.token_dropout = config.token_dropout
         self.mask_token_id = config.mask_token_id
-        self.vocab_size = config.vocab_size
+        self.config = config
 
     def call(
         self, input_ids=None, attention_mask=None, position_ids=None, inputs_embeds=None, past_key_values_length=0
@@ -215,16 +217,7 @@ class TFEsmEmbeddings(Layer):
                 position_ids = self.create_position_ids_from_inputs_embeds(inputs_embeds)
 
         if inputs_embeds is None:
-            # Note: tf.gather, on which the embedding layer is based, won't check positive out of bound
-            # indices on GPU, returning zeros instead. This is a dangerous silent behavior.
-            tf.debugging.assert_less(
-                input_ids,
-                tf.cast(self.vocab_size, dtype=input_ids.dtype),
-                message=(
-                    "input_ids must be smaller than the embedding layer's input dimension (got"
-                    f" {tf.math.reduce_max(input_ids)} >= {self.vocab_size})"
-                ),
-            )
+            check_embeddings_within_bounds(input_ids, self.config.vocab_size)
             inputs_embeds = self.word_embeddings(input_ids)
 
         # Note that if we want to support ESM-1 (not 1b!) in future then we need to support an
@@ -322,15 +315,14 @@ class TFEsmSelfAttention(Layer):
     def call(
         self,
         hidden_states: tf.Tensor,
-        attention_mask: Optional[tf.Tensor] = None,
-        head_mask: Optional[tf.Tensor] = None,
-        encoder_hidden_states: Optional[tf.Tensor] = None,
-        encoder_attention_mask: Optional[tf.Tensor] = None,
-        past_key_value: Optional[Tuple[Tuple[tf.Tensor]]] = None,
+        attention_mask: tf.Tensor | None = None,
+        head_mask: tf.Tensor | None = None,
+        encoder_hidden_states: tf.Tensor | None = None,
+        encoder_attention_mask: tf.Tensor | None = None,
+        past_key_value: Tuple[Tuple[tf.Tensor]] | None = None,
         output_attentions: Optional[bool] = False,
         training: bool = False,
     ) -> Tuple[tf.Tensor]:
-
         mixed_query_layer = self.query(hidden_states)
 
         # If this is instantiated as a cross-attention module, the keys
@@ -477,24 +469,19 @@ class TFEsmAttention(Layer):
         return outputs
 
 
-# Copied from transformers.models.bert.modeling_tf_bert.TFBertIntermediate with Bert->Esm
 class TFEsmIntermediate(tf.keras.layers.Layer):
     def __init__(self, config: EsmConfig, **kwargs):
         super().__init__(**kwargs)
 
         self.dense = tf.keras.layers.Dense(
-            units=config.intermediate_size, kernel_initializer=get_initializer(config.initializer_range), name="dense"
+            units=config.intermediate_size,
+            kernel_initializer=get_initializer(config.initializer_range),
+            name="dense",
         )
-
-        if isinstance(config.hidden_act, str):
-            self.intermediate_act_fn = get_tf_activation(config.hidden_act)
-        else:
-            self.intermediate_act_fn = config.hidden_act
 
     def call(self, hidden_states: tf.Tensor) -> tf.Tensor:
         hidden_states = self.dense(inputs=hidden_states)
-        hidden_states = self.intermediate_act_fn(hidden_states)
-
+        hidden_states = tf.nn.gelu(hidden_states)
         return hidden_states
 
 
@@ -730,7 +717,7 @@ ESM_INPUTS_DOCSTRING = r"""
         input_ids (`tf.Tensor` of shape `({0})`):
             Indices of input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`EsmTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -817,13 +804,13 @@ class TFEsmMainLayer(Layer):
 
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        position_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_hidden_states: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        position_ids: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        encoder_hidden_states: np.ndarray | tf.Tensor | None = None,
+        encoder_attention_mask: np.ndarray | tf.Tensor | None = None,
         past_key_values: Optional[Tuple[Tuple[Union[np.ndarray, tf.Tensor]]]] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
@@ -831,7 +818,6 @@ class TFEsmMainLayer(Layer):
         return_dict: Optional[bool] = None,
         training: bool = False,
     ) -> Union[TFBaseModelOutputWithPoolingAndCrossAttentions, Tuple[tf.Tensor]]:
-
         if not self.config.is_decoder:
             use_cache = False
 
@@ -995,20 +981,19 @@ class TFEsmModel(TFEsmPreTrainedModel):
     @unpack_inputs
     @add_start_docstrings_to_model_forward(ESM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TFBaseModelOutputWithPoolingAndCrossAttentions,
         config_class=_CONFIG_FOR_DOC,
     )
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        position_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_hidden_states: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        position_ids: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        encoder_hidden_states: np.ndarray | tf.Tensor | None = None,
+        encoder_attention_mask: np.ndarray | tf.Tensor | None = None,
         past_key_values: Optional[Tuple[Tuple[Union[np.ndarray, tf.Tensor]]]] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
@@ -1053,39 +1038,6 @@ class TFEsmModel(TFEsmPreTrainedModel):
         )
         return outputs
 
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None), tf.int32, name="attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
-
-    def serving_output(
-        self, output: TFBaseModelOutputWithPoolingAndCrossAttentions
-    ) -> TFBaseModelOutputWithPoolingAndCrossAttentions:
-        output_cache = self.config.use_cache and self.config.is_decoder
-        pkv = tf.convert_to_tensor(output.past_key_values) if output_cache else None
-        hs = tf.convert_to_tensor(output.hidden_states) if self.config.output_hidden_states else None
-        attns = tf.convert_to_tensor(output.attentions) if self.config.output_attentions else None
-        cross_attns = tf.convert_to_tensor(output.cross_attentions) if output.cross_attentions is not None else None
-        if not (self.config.output_attentions and self.config.add_cross_attention):
-            cross_attns = None
-
-        return TFBaseModelOutputWithPoolingAndCrossAttentions(
-            last_hidden_state=output.last_hidden_state,
-            pooler_output=output.pooler_output,
-            past_key_values=pkv,
-            hidden_states=hs,
-            attentions=attns,
-            cross_attentions=cross_attns,
-        )
-
     def predict_contacts(self, tokens, attention_mask):
         return self.esm.predict_contacts(tokens, attention_mask)
 
@@ -1106,6 +1058,11 @@ class TFEsmForMaskedLM(TFEsmPreTrainedModel, TFMaskedLanguageModelingLoss):
 
         self.esm = TFEsmMainLayer(config, add_pooling_layer=False, name="esm")
         self.lm_head = TFEsmLMHead(config, name="lm_head")
+        if config.tie_word_embeddings:
+            # Ensure word embeddings are built so that we actually have something to tie
+            with tf.name_scope(os.path.join(self._name_scope(), "esm", "embeddings", "word_embeddings")):
+                self.esm.embeddings.word_embeddings.build((None, None))
+            self.lm_head.decoder = self.esm.embeddings.word_embeddings.weights[0]
 
     def get_output_embeddings(self):
         return self.lm_head.decoder
@@ -1119,7 +1076,6 @@ class TFEsmForMaskedLM(TFEsmPreTrainedModel, TFMaskedLanguageModelingLoss):
     @unpack_inputs
     @add_start_docstrings_to_model_forward(ESM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TFMaskedLMOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -1127,14 +1083,14 @@ class TFEsmForMaskedLM(TFEsmPreTrainedModel, TFMaskedLanguageModelingLoss):
     )
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        position_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_hidden_states: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        encoder_attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        labels: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        position_ids: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        encoder_hidden_states: np.ndarray | tf.Tensor | None = None,
+        encoder_attention_mask: np.ndarray | tf.Tensor | None = None,
+        labels: np.ndarray | tf.Tensor | None = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -1181,26 +1137,6 @@ class TFEsmForMaskedLM(TFEsmPreTrainedModel, TFMaskedLanguageModelingLoss):
             attentions=outputs.attentions,
         )
 
-    # Copied from transformers.models.bert.modeling_tf_bert.TFBertForMaskedLM.serving_output
-    def serving_output(self, output: TFMaskedLMOutput) -> TFMaskedLMOutput:
-        hs = tf.convert_to_tensor(output.hidden_states) if self.config.output_hidden_states else None
-        attns = tf.convert_to_tensor(output.attentions) if self.config.output_attentions else None
-
-        return TFMaskedLMOutput(logits=output.logits, hidden_states=hs, attentions=attns)
-
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None), tf.int32, name="attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
-
     def predict_contacts(self, tokens, attention_mask):
         return self.esm.predict_contacts(tokens, attention_mask)
 
@@ -1215,20 +1151,22 @@ class TFEsmLMHead(Layer):
         )
 
         self.layer_norm = LayerNormalization(epsilon=config.layer_norm_eps, name="layer_norm")
-
-        self.decoder = Dense(
-            config.vocab_size,
-            use_bias=False,
-            kernel_initializer=get_initializer(config.initializer_range),
-            name="decoder",
-        )
-        self.vocab_size = config.vocab_size
+        if config.tie_word_embeddings:
+            self.decoder = None
+        else:
+            self.decoder = Dense(
+                config.vocab_size,
+                kernel_initializer=get_initializer(config.initializer_range),
+                name="decoder",
+                use_bias=False,
+            )
+        self.config = config
 
     def build(self, input_shape):
         super().build(input_shape)
         # Separate bias to match the PT model and allow weight cross-loading to work
         # Put it in the build so it gets the right name when adding it as a weight
-        self.bias = self.add_weight("bias", shape=(self.vocab_size,), initializer="zeros", trainable=True)
+        self.bias = self.add_weight("bias", shape=(self.config.vocab_size,), initializer="zeros", trainable=True)
 
     def get_bias(self):
         return {"bias": self.bias}
@@ -1239,8 +1177,10 @@ class TFEsmLMHead(Layer):
         x = self.layer_norm(x)
 
         # project back to size of vocabulary with bias
-        x = self.decoder(x)
-        x = x + self.bias
+        if self.config.tie_word_embeddings:
+            x = tf.matmul(x, self.decoder, transpose_b=True) + self.bias
+        else:
+            x = self.decoder(x) + self.bias
         return x
 
 
@@ -1265,19 +1205,18 @@ class TFEsmForSequenceClassification(TFEsmPreTrainedModel, TFSequenceClassificat
     @unpack_inputs
     @add_start_docstrings_to_model_forward(ESM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TFSequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
     )
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        position_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        labels: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        position_ids: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        labels: np.ndarray | tf.Tensor | None = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -1318,26 +1257,6 @@ class TFEsmForSequenceClassification(TFEsmPreTrainedModel, TFSequenceClassificat
             attentions=outputs.attentions,
         )
 
-    # Copied from transformers.models.bert.modeling_tf_bert.TFBertForSequenceClassification.serving_output
-    def serving_output(self, output: TFSequenceClassifierOutput) -> TFSequenceClassifierOutput:
-        hs = tf.convert_to_tensor(output.hidden_states) if self.config.output_hidden_states else None
-        attns = tf.convert_to_tensor(output.attentions) if self.config.output_attentions else None
-
-        return TFSequenceClassifierOutput(logits=output.logits, hidden_states=hs, attentions=attns)
-
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None, None), tf.int32, name="attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
-
 
 @add_start_docstrings(
     """
@@ -1361,19 +1280,18 @@ class TFEsmForTokenClassification(TFEsmPreTrainedModel, TFTokenClassificationLos
     @unpack_inputs
     @add_start_docstrings_to_model_forward(ESM_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     @add_code_sample_docstrings(
-        processor_class=_TOKENIZER_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TFTokenClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
     )
     def call(
         self,
-        input_ids: Optional[TFModelInputType] = None,
-        attention_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        position_ids: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        head_mask: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        inputs_embeds: Optional[Union[np.ndarray, tf.Tensor]] = None,
-        labels: Optional[Union[np.ndarray, tf.Tensor]] = None,
+        input_ids: TFModelInputType | None = None,
+        attention_mask: np.ndarray | tf.Tensor | None = None,
+        position_ids: np.ndarray | tf.Tensor | None = None,
+        head_mask: np.ndarray | tf.Tensor | None = None,
+        inputs_embeds: np.ndarray | tf.Tensor | None = None,
+        labels: np.ndarray | tf.Tensor | None = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -1414,26 +1332,6 @@ class TFEsmForTokenClassification(TFEsmPreTrainedModel, TFTokenClassificationLos
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
-
-    # Copied from transformers.models.bert.modeling_tf_bert.TFBertForTokenClassification.serving_output
-    def serving_output(self, output: TFTokenClassifierOutput) -> TFTokenClassifierOutput:
-        hs = tf.convert_to_tensor(output.hidden_states) if self.config.output_hidden_states else None
-        attns = tf.convert_to_tensor(output.attentions) if self.config.output_attentions else None
-
-        return TFTokenClassifierOutput(logits=output.logits, hidden_states=hs, attentions=attns)
-
-    @tf.function(
-        input_signature=[
-            {
-                "input_ids": tf.TensorSpec((None, None), tf.int32, name="input_ids"),
-                "attention_mask": tf.TensorSpec((None, None), tf.int32, name="attention_mask"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        output = self.call(inputs)
-
-        return self.serving_output(output)
 
 
 class TFEsmClassificationHead(Layer):

@@ -37,7 +37,6 @@ from .configuration_altclip import AltCLIPConfig, AltCLIPTextConfig, AltCLIPVisi
 
 logger = logging.get_logger(__name__)
 
-_TOKENIZER_FOR_DOC = "XLMRobertaTokenizer"
 _CHECKPOINT_FOR_DOC = "BAAI/AltCLIP"
 _CONFIG_FOR_DOC = "AltCLIPConfig"
 
@@ -68,7 +67,7 @@ ALTCLIP_TEXT_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`XLMRobertaTokenizerFast`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -98,7 +97,7 @@ ALTCLIP_VISION_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         output_attentions (`bool`, *optional*):
             Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
@@ -115,7 +114,7 @@ ALTCLIP_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`XLMRobertaTokenizerFast`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -133,7 +132,7 @@ ALTCLIP_INPUTS_DOCSTRING = r"""
             [What are position IDs?](../glossary#position-ids)
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         return_loss (`bool`, *optional*):
             Whether or not to return the contrastive loss.
         output_attentions (`bool`, *optional*):
@@ -217,7 +216,9 @@ class AltRobertaEmbeddings(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
         self.register_buffer(
             "token_type_ids", torch.zeros(self.position_ids.size(), dtype=torch.long), persistent=False
         )
@@ -629,6 +630,13 @@ class AltRobertaEncoder(nn.Module):
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
 
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
         next_decoder_cache = () if use_cache else None
         for i, layer_module in enumerate(self.layer):
             if output_hidden_states:
@@ -638,12 +646,6 @@ class AltRobertaEncoder(nn.Module):
             past_key_value = past_key_values[i] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
-
-                if use_cache:
-                    logger.warning(
-                        "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-                    )
-                    use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
@@ -845,9 +847,9 @@ class AltCLIPEncoderLayer(nn.Module):
         super().__init__()
         self.embed_dim = config.hidden_size
         self.self_attn = AltCLIPAttention(config)
-        self.layer_norm1 = nn.LayerNorm(self.embed_dim)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
         self.mlp = AltCLIPMLP(config)
-        self.layer_norm2 = nn.LayerNorm(self.embed_dim)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
 
     def forward(
         self,
@@ -1016,7 +1018,7 @@ class AltCLIPVisionEmbeddings(nn.Module):
         self.num_patches = (self.image_size // self.patch_size) ** 2
         self.num_positions = self.num_patches + 1
         self.position_embedding = nn.Embedding(self.num_positions, self.embed_dim)
-        self.register_buffer("position_ids", torch.arange(self.num_positions).expand((1, -1)))
+        self.register_buffer("position_ids", torch.arange(self.num_positions).expand((1, -1)), persistent=False)
 
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
         batch_size = pixel_values.shape[0]
@@ -1038,7 +1040,6 @@ class AltCLIPPreTrainedModel(PreTrainedModel):
     config_class = AltCLIPConfig
     base_model_prefix = "altclip"
     supports_gradient_checkpointing = True
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -1069,10 +1070,12 @@ class AltCLIPPreTrainedModel(PreTrainedModel):
                 module.text_projection.weight,
                 std=module.text_embed_dim**-0.5 * self.config.initializer_factor,
             )
+            module.text_projection._is_hf_initialized = True
             nn.init.normal_(
                 module.visual_projection.weight,
                 std=module.vision_embed_dim**-0.5 * self.config.initializer_factor,
             )
+            module.visual_projection._is_hf_initialized = True
         elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
@@ -1100,9 +1103,9 @@ class AltCLIPVisionTransformer(nn.Module):
         embed_dim = config.hidden_size
 
         self.embeddings = AltCLIPVisionEmbeddings(config)
-        self.pre_layrnorm = nn.LayerNorm(embed_dim)
+        self.pre_layrnorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
         self.encoder = AltCLIPEncoder(config)
-        self.post_layernorm = nn.LayerNorm(embed_dim)
+        self.post_layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
 
     @add_start_docstrings_to_model_forward(ALTCLIP_VISION_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutputWithPooling, config_class=AltCLIPVisionConfig)
@@ -1181,10 +1184,10 @@ class AltCLIPVisionModel(AltCLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import AltCLIPProcessor, AltCLIPVisionModel
+        >>> from transformers import AutoProcessor, AltCLIPVisionModel
 
         >>> model = AltCLIPVisionModel.from_pretrained("BAAI/AltCLIP")
-        >>> processor = AltCLIPProcessor.from_pretrained("BAAI/AltCLIP")
+        >>> processor = AutoProcessor.from_pretrained("BAAI/AltCLIP")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -1302,6 +1305,7 @@ class AltRobertaModel(AltCLIPPreTrainedModel):
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
         elif input_ids is not None:
             input_shape = input_ids.size()
+            self.warn_if_padding_and_no_attention_mask(input_ids, attention_mask)
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
         else:
@@ -1422,10 +1426,10 @@ class AltCLIPTextModel(AltCLIPPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import AltCLIPProcessor, AltCLIPTextModel
+        >>> from transformers import AutoProcessor, AltCLIPTextModel
 
         >>> model = AltCLIPTextModel.from_pretrained("BAAI/AltCLIP")
-        >>> processor = AltCLIPProcessor.from_pretrained("BAAI/AltCLIP")
+        >>> processor = AutoProcessor.from_pretrained("BAAI/AltCLIP")
 
         >>> texts = ["it's a cat", "it's a dog"]
 
@@ -1502,7 +1506,7 @@ class AltCLIPModel(AltCLIPPreTrainedModel):
 
         self.visual_projection = nn.Linear(self.vision_embed_dim, self.projection_dim, bias=False)
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
-        self.logit_scale = nn.Parameter(torch.ones([]) * self.config.logit_scale_init_value)
+        self.logit_scale = nn.Parameter(torch.tensor(self.config.logit_scale_init_value))
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1526,10 +1530,10 @@ class AltCLIPModel(AltCLIPPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import AltCLIPProcessor, AltCLIPModel
+        >>> from transformers import AutoProcessor, AltCLIPModel
 
         >>> model = AltCLIPModel.from_pretrained("BAAI/AltCLIP")
-        >>> processor = AltCLIPProcessor.from_pretrained("BAAI/AltCLIP")
+        >>> processor = AutoProcessor.from_pretrained("BAAI/AltCLIP")
         >>> inputs = processor(text=["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="pt")
         >>> text_features = model.get_text_features(**inputs)
         ```"""
@@ -1572,10 +1576,10 @@ class AltCLIPModel(AltCLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import AltCLIPProcessor, AltCLIPModel
+        >>> from transformers import AutoProcessor, AltCLIPModel
 
         >>> model = AltCLIPModel.from_pretrained("BAAI/AltCLIP")
-        >>> processor = AltCLIPProcessor.from_pretrained("BAAI/AltCLIP")
+        >>> processor = AutoProcessor.from_pretrained("BAAI/AltCLIP")
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
         >>> inputs = processor(images=image, return_tensors="pt")
@@ -1622,10 +1626,10 @@ class AltCLIPModel(AltCLIPPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import AltCLIPProcessor, AltCLIPModel
+        >>> from transformers import AutoProcessor, AltCLIPModel
 
         >>> model = AltCLIPModel.from_pretrained("BAAI/AltCLIP")
-        >>> processor = AltCLIPProcessor.from_pretrained("BAAI/AltCLIP")
+        >>> processor = AutoProcessor.from_pretrained("BAAI/AltCLIP")
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
         >>> inputs = processor(

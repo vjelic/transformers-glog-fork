@@ -41,7 +41,6 @@ logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "openai/imagegpt-small"
 _CONFIG_FOR_DOC = "ImageGPTConfig"
-_TOKENIZER_FOR_DOC = "ImageGPTTokenizer"
 
 IMAGEGPT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "openai/imagegpt-small",
@@ -181,11 +180,12 @@ class ImageGPTAttention(nn.Module):
         max_positions = config.max_position_embeddings
         self.register_buffer(
             "bias",
-            torch.tril(torch.ones((max_positions, max_positions), dtype=torch.uint8)).view(
+            torch.tril(torch.ones((max_positions, max_positions), dtype=torch.bool)).view(
                 1, 1, max_positions, max_positions
             ),
+            persistent=False,
         )
-        self.register_buffer("masked_bias", torch.tensor(-1e4))
+        self.register_buffer("masked_bias", torch.tensor(-1e4), persistent=False)
 
         self.embed_dim = config.hidden_size
         self.num_heads = config.num_attention_heads
@@ -245,7 +245,7 @@ class ImageGPTAttention(nn.Module):
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
             query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].bool()
+            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
             mask_value = torch.finfo(attn_weights.dtype).min
             # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
             # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
@@ -295,7 +295,7 @@ class ImageGPTAttention(nn.Module):
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
             query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].bool()
+            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
             mask_value = torch.finfo(attn_weights.dtype).min
             # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
             # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
@@ -556,8 +556,7 @@ IMAGEGPT_INPUTS_DOCSTRING = r"""
             If `past_key_values` is used, only `input_ids` that do not have their past calculated should be passed as
             `input_ids`.
 
-            Indices can be obtained using [`ImageGPTImageProcessor`]. See [`ImageGPTImageProcessor.__call__`] for
-            details.
+            Indices can be obtained using [`AutoImageProcessor`]. See [`ImageGPTImageProcessor.__call__`] for details.
 
         past_key_values (`Tuple[Tuple[torch.Tensor]]` of length `config.n_layers`):
             Contains precomputed hidden-states (key and values in the attention blocks) as computed by the model (see
@@ -615,8 +614,6 @@ IMAGEGPT_INPUTS_DOCSTRING = r"""
     IMAGEGPT_START_DOCSTRING,
 )
 class ImageGPTModel(ImageGPTPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["attn.masked_bias"]
-
     def __init__(self, config: ImageGPTConfig):
         super().__init__(config)
 
@@ -679,14 +676,14 @@ class ImageGPTModel(ImageGPTPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import ImageGPTImageProcessor, ImageGPTModel
+        >>> from transformers import AutoImageProcessor, ImageGPTModel
         >>> from PIL import Image
         >>> import requests
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> image_processor = ImageGPTImageProcessor.from_pretrained("openai/imagegpt-small")
+        >>> image_processor = AutoImageProcessor.from_pretrained("openai/imagegpt-small")
         >>> model = ImageGPTModel.from_pretrained("openai/imagegpt-small")
 
         >>> inputs = image_processor(images=image, return_tensors="pt")
@@ -793,12 +790,18 @@ class ImageGPTModel(ImageGPTPreTrainedModel):
 
         output_shape = input_shape + (hidden_states.size(-1),)
 
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
         presents = () if use_cache else None
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
         all_hidden_states = () if output_hidden_states else None
         for i, (block, layer_past) in enumerate(zip(self.h, past_key_values)):
-
             # Model parallel
             if self.model_parallel:
                 torch.cuda.set_device(hidden_states.device)
@@ -814,12 +817,6 @@ class ImageGPTModel(ImageGPTPreTrainedModel):
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
             if self.gradient_checkpointing and self.training:
-
-                if use_cache:
-                    logger.warning(
-                        "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-                    )
-                    use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
@@ -895,7 +892,7 @@ class ImageGPTModel(ImageGPTPreTrainedModel):
     IMAGEGPT_START_DOCSTRING,
 )
 class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
+    _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config: ImageGPTConfig):
         super().__init__(config)
@@ -973,20 +970,20 @@ class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import ImageGPTImageProcessor, ImageGPTForCausalImageModeling
+        >>> from transformers import AutoImageProcessor, ImageGPTForCausalImageModeling
         >>> import torch
         >>> import matplotlib.pyplot as plt
         >>> import numpy as np
 
-        >>> image_processor = ImageGPTImageProcessor.from_pretrained("openai/imagegpt-small")
+        >>> image_processor = AutoImageProcessor.from_pretrained("openai/imagegpt-small")
         >>> model = ImageGPTForCausalImageModeling.from_pretrained("openai/imagegpt-small")
         >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        >>> model.to(device)
+        >>> model.to(device)  # doctest: +IGNORE_RESULT
 
         >>> # unconditional generation of 8 images
-        >>> batch_size = 8
+        >>> batch_size = 4
         >>> context = torch.full((batch_size, 1), model.config.vocab_size - 1)  # initialize with SOS token
-        >>> context = torch.tensor(context).to(device)
+        >>> context = context.to(device)
         >>> output = model.generate(
         ...     input_ids=context, max_length=model.config.n_positions + 1, temperature=1.0, do_sample=True, top_k=40
         ... )
@@ -1001,7 +998,7 @@ class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
         ... ]  # convert color cluster tokens back to pixels
         >>> f, axes = plt.subplots(1, batch_size, dpi=300)
 
-        >>> for img, ax in zip(samples_img, axes):
+        >>> for img, ax in zip(samples_img, axes):  # doctest: +IGNORE_RESULT
         ...     ax.axis("off")
         ...     ax.imshow(img)
         ```"""
@@ -1064,7 +1061,9 @@ class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
         )
 
     @staticmethod
-    def _reorder_cache(past: Tuple[Tuple[torch.Tensor]], beam_idx: torch.Tensor) -> Tuple[Tuple[torch.Tensor]]:
+    def _reorder_cache(
+        past_key_values: Tuple[Tuple[torch.Tensor]], beam_idx: torch.Tensor
+    ) -> Tuple[Tuple[torch.Tensor]]:
         """
         This function is used to re-order the `past_key_values` cache if [`~PreTrainedModel.beam_search`] or
         [`~PreTrainedModel.beam_sample`] is called. This is required to match `past_key_values` with the correct
@@ -1072,7 +1071,7 @@ class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
         """
         return tuple(
             tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past)
-            for layer_past in past
+            for layer_past in past_key_values
         )
 
 
@@ -1084,8 +1083,6 @@ class ImageGPTForCausalImageModeling(ImageGPTPreTrainedModel):
     IMAGEGPT_START_DOCSTRING,
 )
 class ImageGPTForImageClassification(ImageGPTPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn\.masked_bias", r"lm_head.weight"]
-
     def __init__(self, config: ImageGPTConfig):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -1124,14 +1121,14 @@ class ImageGPTForImageClassification(ImageGPTPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import ImageGPTImageProcessor, ImageGPTForImageClassification
+        >>> from transformers import AutoImageProcessor, ImageGPTForImageClassification
         >>> from PIL import Image
         >>> import requests
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> image_processor = ImageGPTImageProcessor.from_pretrained("openai/imagegpt-small")
+        >>> image_processor = AutoImageProcessor.from_pretrained("openai/imagegpt-small")
         >>> model = ImageGPTForImageClassification.from_pretrained("openai/imagegpt-small")
 
         >>> inputs = image_processor(images=image, return_tensors="pt")
