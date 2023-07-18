@@ -721,7 +721,7 @@ def main():
             checkpoint = None
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model()
+        # trainer.save_model()
 
         metrics = train_result.metrics
         max_train_samples = (

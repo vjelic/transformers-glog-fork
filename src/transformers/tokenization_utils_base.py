@@ -1848,7 +1848,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             pretrained_model_name_or_path,
             init_configuration,
             *init_inputs,
-            use_auth_token=token,
+            # use_auth_token=token, #BUG: in kwargs already
             cache_dir=cache_dir,
             local_files_only=local_files_only,
             _commit_hash=commit_hash,
