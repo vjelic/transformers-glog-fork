@@ -615,7 +615,7 @@ class Trainer:
                         raise ValueError("Tried to use `fp16` but it is not supported on cpu")
                     else:
                         args.half_precision_backend = "cpu_amp"
-                else:
+                elif args.parallel_mode != ParallelMode.DISTRIBUTED:
                     args.half_precision_backend = "cuda_amp"
 
             logger.info(f"Using {args.half_precision_backend} half precision backend")
