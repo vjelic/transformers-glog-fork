@@ -20,18 +20,20 @@ env:
 
 jobs:
   run_doctests:
-    runs-on: [self-hosted, doc-tests-gpu]
+    runs-on: rocm gfx90a rocm-org
     container:
       image: huggingface/transformers-all-latest-gpu
-      options: --gpus 0 --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     steps:
       - name: uninstall transformers (installed during docker image build)
         run: python3 -m pip uninstall -y transformers
 
       - uses: actions/checkout@v3
-      - name: NVIDIA-SMI
+      - name: ROCM-SMI
         run: |
-          nvidia-smi
+          rocm-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
       - name: Install transformers in edit mode
         run: python3 -m pip install -e .
@@ -62,7 +64,7 @@ jobs:
 
   send_results:
     name: Send results to webhook
-    runs-on: ubuntu-latest
+    runs-on: rocm gfx90a rocm-org
     if: always()
     needs: [run_doctests]
     steps:
