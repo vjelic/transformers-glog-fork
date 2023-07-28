@@ -51,7 +51,7 @@ jobs:
           context: ./docker/transformers-all-latest-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-all-latest-gpu${{ inputs.image_postfix }}
       # Push CI images still need to be re-built daily
       -
@@ -64,7 +64,7 @@ jobs:
           context: ./docker/transformers-all-latest-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-all-latest-gpu-push-ci
 
   latest-torch-deepspeed-docker:
@@ -100,7 +100,7 @@ jobs:
           context: ./docker/transformers-pytorch-deepspeed-latest-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-pytorch-deepspeed-latest-gpu${{ inputs.image_postfix }}
 
   # Can't build 2 images in a single job `latest-torch-deepspeed-docker` (for `nvcr.io/nvidia`)
@@ -141,7 +141,7 @@ jobs:
           context: ./docker/transformers-pytorch-deepspeed-latest-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-pytorch-deepspeed-latest-gpu-push-ci
 
   doc-builder:
@@ -167,7 +167,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: ./docker/transformers-doc-builder
-          push: true
+          push: false
           tags: huggingface/transformers-doc-builder
 
   latest-pytorch:
@@ -195,7 +195,7 @@ jobs:
           context: ./docker/transformers-pytorch-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-pytorch-gpu
 
   latest-tensorflow:
@@ -223,5 +223,5 @@ jobs:
           context: ./docker/transformers-tensorflow-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-tensorflow-gpu
