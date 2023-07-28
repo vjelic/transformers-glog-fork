@@ -23,7 +23,7 @@ env:
 jobs:
   check_runner_status:
     name: Check Runner Status
-    runs-on: ubuntu-latest
+    runs-on: rocm gfx90a rocm-org
     steps:
       - name: Checkout transformers
         uses: actions/checkout@v3
@@ -42,11 +42,13 @@ jobs:
     runs-on: ${{ format('{0}-{1}', matrix.machine_type, 'docker-past-ci') }}
     container:
       image: huggingface/transformers-all-latest-torch-nightly-gpu
-      options: --gpus 0 --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     steps:
-      - name: NVIDIA-SMI
+      - name: ROCM-SMI
         run: |
-          nvidia-smi
+          rocm-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
   setup:
     name: Setup
@@ -57,7 +59,7 @@ jobs:
     runs-on: ${{ format('{0}-{1}', matrix.machine_type, 'docker-past-ci') }}
     container:
       image: huggingface/transformers-all-latest-torch-nightly-gpu
-      options: --gpus 0 --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -83,9 +85,11 @@ jobs:
         run: |
           echo "matrix=$(python3 -c 'import os; tests = os.getcwd(); model_tests = os.listdir(os.path.join(tests, "models")); d1 = sorted(list(filter(os.path.isdir, os.listdir(tests)))); d2 = sorted(list(filter(os.path.isdir, [f"models/{x}" for x in model_tests]))); d1.remove("models"); d = d2 + d1; print(d)')" >> $GITHUB_OUTPUT
 
-      - name: NVIDIA-SMI
+      - name: ROCM-SMI
         run: |
-          nvidia-smi
+          rocm-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
   run_tests_single_gpu:
     name: Model tests
@@ -97,7 +101,7 @@ jobs:
     runs-on: ${{ format('{0}-{1}', matrix.machine_type, 'docker-past-ci') }}
     container:
       image: huggingface/transformers-all-latest-torch-nightly-gpu
-      options: --gpus 0 --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     needs: setup
     steps:
       - name: Echo folder ${{ matrix.folders }}
@@ -115,9 +119,11 @@ jobs:
         working-directory: /transformers
         run: git fetch && git checkout ${{ github.sha }}
 
-      - name: NVIDIA-SMI
+      - name: ROCM-SMI
         run: |
-          nvidia-smi
+          rocm-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
       - name: Environment
         working-directory: /transformers
@@ -154,7 +160,7 @@ jobs:
     runs-on: ${{ format('{0}-{1}', matrix.machine_type, 'docker-past-ci') }}
     container:
       image: huggingface/transformers-all-latest-torch-nightly-gpu
-      options: --gpus all --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     needs: setup
     steps:
       - name: Echo folder ${{ matrix.folders }}
@@ -172,9 +178,11 @@ jobs:
         working-directory: /transformers
         run: git fetch && git checkout ${{ github.sha }}
 
-      - name: NVIDIA-SMI
+      - name: ROCM-SMI
         run: |
-          nvidia-smi
+          rocm-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
       - name: Environment
         working-directory: /transformers
@@ -211,7 +219,7 @@ jobs:
     needs: setup
     container:
       image: huggingface/transformers-pytorch-deepspeed-nightly-gpu
-      options: --gpus all --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+      options: --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host --shm-size 16G -v /mnt/cache/.cache/huggingface:/mnt/cache/
     steps:
       - name: Update clone
         working-directory: /workspace/transformers
@@ -232,6 +240,8 @@ jobs:
       - name: NVIDIA-SMI
         run: |
           nvidia-smi
+      - name: ROCM info gfx
+        run: rocminfo | grep "gfx*"
 
       - name: Environment
         working-directory: /workspace/transformers
