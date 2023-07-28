@@ -13,7 +13,7 @@ concurrency:
 jobs:
   latest-with-torch-nightly-docker:
     name: "Nightly PyTorch + Stable TensorFlow"
-    runs-on: ubuntu-latest
+    runs-on: rocm gfx90a rocm-org
     steps:
       - name: Cleanup disk
         run: |
@@ -45,12 +45,12 @@ jobs:
           build-args: |
             REF=main
             PYTORCH=pre
-          push: true
+          push: false
           tags: huggingface/transformers-all-latest-torch-nightly-gpu
 
   nightly-torch-deepspeed-docker:
     name: "Nightly PyTorch + DeepSpeed"
-    runs-on: ubuntu-latest
+    runs-on: rocm gfx90a rocm-org
     steps:
       -
         name: Set up Docker Buildx
@@ -71,5 +71,5 @@ jobs:
           context: ./docker/transformers-pytorch-deepspeed-nightly-gpu
           build-args: |
             REF=main
-          push: true
+          push: false
           tags: huggingface/transformers-pytorch-deepspeed-nightly-gpu
