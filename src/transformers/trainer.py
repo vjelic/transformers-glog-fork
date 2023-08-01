@@ -607,7 +607,7 @@ class Trainer:
                         "but SageMaker Model Parallelism < 1.10 does not support FP16 in trainer."
                     )
 
-        #if (args.fp16 or args.bf16) and self.sharded_ddp is not None:
+        # Note: Accelerator causes performance regression on ROCm. TODO: Re-enable upstream changes when issue is resolved. Reverted to previous implementation. 
         if (args.fp16 or args.bf16) or self.sharded_ddp is not None:
             if args.half_precision_backend == "auto":
                 if args.device == torch.device("cpu"):
@@ -615,8 +615,6 @@ class Trainer:
                         raise ValueError("Tried to use `fp16` but it is not supported on cpu")
                     else:
                         args.half_precision_backend = "cpu_amp"
-                elif args.parallel_mode != ParallelMode.DISTRIBUTED:
-                    args.half_precision_backend = "cuda_amp"
 
             logger.info(f"Using {args.half_precision_backend} half precision backend")
 
@@ -1658,20 +1656,21 @@ class Trainer:
             if use_accelerator_prepare:
                 self.model = self.accelerator.prepare(self.model)
             self.create_optimizer_and_scheduler(num_training_steps=max_steps)
-
+        
+        # Note: Accelerator causes performance regression on ROCm. TODO: Re-enable when issue is resolved. 
         # prepare using `accelerator` prepare
-        if use_accelerator_prepare:
-            self.model.train()
-            if hasattr(self.lr_scheduler, "step"):
-                if self.use_apex:
-                    model = self.accelerator.prepare(self.model)
-                else:
-                    model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
-            else:
+        #if use_accelerator_prepare:
+        #    self.model.train()
+        #    if hasattr(self.lr_scheduler, "step"):
+        #        if self.use_apex:
+        #            model = self.accelerator.prepare(self.model)
+        #        else:
+        #            model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
+        #    else:
                 # to handle cases wherein we pass "DummyScheduler" such as when it is specified in DeepSpeed config.
-                model, self.optimizer, self.lr_scheduler = self.accelerator.prepare(
-                    self.model, self.optimizer, self.lr_scheduler
-                )
+        #        model, self.optimizer, self.lr_scheduler = self.accelerator.prepare(
+        #            self.model, self.optimizer, self.lr_scheduler
+        #        )
 
         if self.is_fsdp_enabled:
             self.model = model
@@ -2684,7 +2683,9 @@ class Trainer:
             with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
-            self.accelerator.backward(loss)
+            # Note: Accelerator causes performance regression on ROCm. TODO: Re-enable when issue is resolved. Reverted to previous implementation.
+            #self.accelerator.backward(loss)
+            loss.backward()
 
         return loss.detach() / self.args.gradient_accumulation_steps
 
