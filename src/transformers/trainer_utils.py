@@ -341,7 +341,9 @@ def speed_metrics(split, start_time, num_samples=None, num_steps=None):
     - start_time: operation start time
     - num_samples: number of samples processed
     """
+    print("Start time : " + start_time)
     runtime = time.time() - start_time
+    print("Runtime : " + runtime)
     result = {f"{split}_runtime": round(runtime, 4)}
     if runtime == 0:
         return result
@@ -351,6 +353,7 @@ def speed_metrics(split, start_time, num_samples=None, num_steps=None):
     if num_steps is not None:
         steps_per_second = num_steps / runtime
         result[f"{split}_steps_per_second"] = round(steps_per_second, 3)
+    print("speed_metrics result : " + result)
     return result
 
 
