@@ -1953,6 +1953,7 @@ class Trainer:
 
         total_samples = self.state.global_step*total_train_batch_size if args.max_steps > 0 else num_examples*num_train_epochs
         perf_samples = total_samples - self.args.warmup_steps*total_train_batch_size
+        print("Stable train start time = " + start_train_stable_time)
         stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, perf_samples)
 
         self.store_flos()
