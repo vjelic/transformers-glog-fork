@@ -18,12 +18,10 @@ from typing import Optional, Union
 
 import numpy as np
 
-from transformers.utils.generic import TensorType
-
 from ...image_processing_utils import BaseImageProcessor, BatchFeature
-from ...image_transforms import get_image_size, pad, rescale, to_channel_dimension_format
-from ...image_utils import ChannelDimension, ImageInput, is_batched, to_numpy_array, valid_images
-from ...utils import logging
+from ...image_transforms import get_image_size, pad, to_channel_dimension_format
+from ...image_utils import ChannelDimension, ImageInput, make_list_of_images, to_numpy_array, valid_images
+from ...utils import TensorType, logging
 
 
 logger = logging.get_logger(__name__)
@@ -50,7 +48,7 @@ class Swin2SRImageProcessor(BaseImageProcessor):
         rescale_factor: Union[int, float] = 1 / 255,
         do_pad: bool = True,
         pad_size: int = 8,
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
 
@@ -58,28 +56,6 @@ class Swin2SRImageProcessor(BaseImageProcessor):
         self.rescale_factor = rescale_factor
         self.do_pad = do_pad
         self.pad_size = pad_size
-
-    def rescale(
-        self, image: np.ndarray, scale: float, data_format: Optional[Union[str, ChannelDimension]] = None, **kwargs
-    ) -> np.ndarray:
-        """
-        Rescale an image by a scale factor. image = image * scale.
-
-        Args:
-            image (`np.ndarray`):
-                Image to rescale.
-            scale (`float`):
-                The scaling factor to rescale pixel values by.
-            data_format (`str` or `ChannelDimension`, *optional*):
-                The channel dimension format for the output image. If unset, the channel dimension format of the input
-                image is used. Can be one of:
-                - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
-                - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
-
-        Returns:
-            `np.ndarray`: The rescaled image.
-        """
-        return rescale(image, scale=scale, data_format=data_format, **kwargs)
 
     def pad(self, image: np.ndarray, size: int, data_format: Optional[Union[str, ChannelDimension]] = None):
         """
@@ -148,8 +124,7 @@ class Swin2SRImageProcessor(BaseImageProcessor):
         do_pad = do_pad if do_pad is not None else self.do_pad
         pad_size = pad_size if pad_size is not None else self.pad_size
 
-        if not is_batched(images):
-            images = [images]
+        images = make_list_of_images(images)
 
         if not valid_images(images):
             raise ValueError(

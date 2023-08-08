@@ -14,12 +14,11 @@
 # limitations under the License.
 
 import os
-from typing import TYPE_CHECKING, Dict, Iterable, List, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-from packaging import version
-
 import requests
+from packaging import version
 
 from .utils import (
     ExplicitEnum,
@@ -36,6 +35,8 @@ from .utils.constants import (  # noqa: F401
     IMAGENET_DEFAULT_STD,
     IMAGENET_STANDARD_MEAN,
     IMAGENET_STANDARD_STD,
+    OPENAI_CLIP_MEAN,
+    OPENAI_CLIP_STD,
 )
 
 
@@ -61,6 +62,10 @@ ImageInput = Union[
 class ChannelDimension(ExplicitEnum):
     FIRST = "channels_first"
     LAST = "channels_last"
+
+
+def is_pil_image(img):
+    return is_vision_available() and isinstance(img, PIL.Image.Image)
 
 
 def is_valid_image(img):
@@ -89,6 +94,45 @@ def is_batched(img):
     if isinstance(img, (list, tuple)):
         return is_valid_image(img[0])
     return False
+
+
+def make_list_of_images(images, expected_ndims: int = 3) -> List[ImageInput]:
+    """
+    Ensure that the input is a list of images. If the input is a single image, it is converted to a list of length 1.
+    If the input is a batch of images, it is converted to a list of images.
+
+    Args:
+        images (`ImageInput`):
+            Image of images to turn into a list of images.
+        expected_ndims (`int`, *optional*, defaults to 3):
+            Expected number of dimensions for a single input image. If the input image has a different number of
+            dimensions, an error is raised.
+    """
+    if is_batched(images):
+        return images
+
+    # Either the input is a single image, in which case we create a list of length 1
+    if isinstance(images, PIL.Image.Image):
+        # PIL images are never batched
+        return [images]
+
+    if is_valid_image(images):
+        if images.ndim == expected_ndims + 1:
+            # Batch of images
+            images = list(images)
+        elif images.ndim == expected_ndims:
+            # Single image
+            images = [images]
+        else:
+            raise ValueError(
+                f"Invalid image shape. Expected either {expected_ndims + 1} or {expected_ndims} dimensions, but got"
+                f" {images.ndim} dimensions."
+            )
+        return images
+    raise ValueError(
+        "Invalid image type. Expected either PIL.Image.Image, numpy.ndarray, torch.Tensor, tf.Tensor or "
+        f"jax.ndarray, but got {type(images)}."
+    )
 
 
 def to_numpy_array(img) -> np.ndarray:
@@ -209,13 +253,15 @@ def valid_coco_panoptic_annotations(annotations: Iterable[Dict[str, Union[List, 
     return all(is_valid_annotation_coco_panoptic(ann) for ann in annotations)
 
 
-def load_image(image: Union[str, "PIL.Image.Image"]) -> "PIL.Image.Image":
+def load_image(image: Union[str, "PIL.Image.Image"], timeout: Optional[float] = None) -> "PIL.Image.Image":
     """
     Loads `image` to a PIL Image.
 
     Args:
         image (`str` or `PIL.Image.Image`):
             The image to convert to the PIL Image format.
+        timeout (`float`, *optional*):
+            The timeout value in seconds for the URL request.
 
     Returns:
         `PIL.Image.Image`: A PIL Image.
@@ -225,7 +271,7 @@ def load_image(image: Union[str, "PIL.Image.Image"]) -> "PIL.Image.Image":
         if image.startswith("http://") or image.startswith("https://"):
             # We need to actually check for a real protocol, otherwise it's impossible to use a local file
             # like http_huggingface_co.png
-            image = PIL.Image.open(requests.get(image, stream=True).raw)
+            image = PIL.Image.open(requests.get(image, stream=True, timeout=timeout).raw)
         elif os.path.isfile(image):
             image = PIL.Image.open(image)
         else:

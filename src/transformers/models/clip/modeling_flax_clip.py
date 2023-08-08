@@ -78,7 +78,7 @@ CLIP_TEXT_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`CLIPTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -108,7 +108,7 @@ CLIP_VISION_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`numpy.ndarray` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         output_attentions (`bool`, *optional*):
             Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
@@ -125,7 +125,7 @@ CLIP_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
 
-            Indices can be obtained using [`CLIPTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
@@ -143,7 +143,7 @@ CLIP_INPUTS_DOCSTRING = r"""
             [What are position IDs?](../glossary#position-ids)
         pixel_values (`numpy.ndarray` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained using
-            [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+            [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
         output_attentions (`bool`, *optional*):
             Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
             tensors for more detail.
@@ -315,7 +315,7 @@ class FlaxCLIPAttention(nn.Module):
             attention_bias = lax.select(
                 attention_mask > 0,
                 jnp.full(attention_mask.shape, 0.0).astype(self.dtype),
-                jnp.full(attention_mask.shape, -1e4).astype(self.dtype),
+                jnp.full(attention_mask.shape, jnp.finfo(self.dtype).min).astype(self.dtype),
             )
         else:
             attention_bias = None
@@ -487,6 +487,9 @@ class FlaxCLIPTextTransformer(nn.Module):
         self.encoder = FlaxCLIPEncoder(self.config, dtype=self.dtype)
         self.final_layer_norm = nn.LayerNorm(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
 
+        # For `pooled_output` computation
+        self.eos_token_id = self.config.eos_token_id
+
     def __call__(
         self,
         input_ids,
@@ -517,9 +520,18 @@ class FlaxCLIPTextTransformer(nn.Module):
         last_hidden_state = encoder_outputs[0]
         last_hidden_state = self.final_layer_norm(last_hidden_state)
 
-        # text_embeds.shape = [batch_size, sequence_length, transformer.width]
-        # take features from the EOS embedding (eos_token_id is the highest number in each sequence)
-        pooled_output = last_hidden_state[jnp.arange(last_hidden_state.shape[0]), input_ids.argmax(axis=-1)]
+        if self.eos_token_id == 2:
+            # The `eos_token_id` was incorrect before PR #24773: Let's keep what have been done here.
+            # A CLIP model with such `eos_token_id` in the config can't work correctly with extra new tokens added
+            # ------------------------------------------------------------
+            # text_embeds.shape = [batch_size, sequence_length, transformer.width]
+            # take features from the EOS embedding (eos_token_id is the highest number in each sequence)
+            pooled_output = last_hidden_state[jnp.arange(last_hidden_state.shape[0]), input_ids.argmax(axis=-1)]
+        else:
+            # (no need to cast from bool to int after comparing to `eos_token_id`)
+            pooled_output = last_hidden_state[
+                jnp.arange(last_hidden_state.shape[0]), (input_ids == self.eos_token_id).argmax(axis=-1)
+            ]
 
         if not return_dict:
             return (last_hidden_state, pooled_output) + encoder_outputs[1:]
@@ -593,7 +605,7 @@ class FlaxCLIPTextPreTrainedModel(FlaxPreTrainedModel):
         seed: int = 0,
         dtype: jnp.dtype = jnp.float32,
         _do_init: bool = True,
-        **kwargs
+        **kwargs,
     ):
         module = self.module_class(config=config, dtype=dtype, **kwargs)
         super().__init__(config, module, input_shape=input_shape, seed=seed, dtype=dtype, _do_init=_do_init)
@@ -673,7 +685,7 @@ class FlaxCLIPVisionPreTrainedModel(FlaxPreTrainedModel):
         seed: int = 0,
         dtype: jnp.dtype = jnp.float32,
         _do_init: bool = True,
-        **kwargs
+        **kwargs,
     ):
         if input_shape is None:
             input_shape = (1, config.image_size, config.image_size, 3)
@@ -744,7 +756,7 @@ class FlaxCLIPPreTrainedModel(FlaxPreTrainedModel):
         seed: int = 0,
         dtype: jnp.dtype = jnp.float32,
         _do_init: bool = True,
-        **kwargs
+        **kwargs,
     ):
         if input_shape is None:
             input_shape = ((1, 1), (1, config.vision_config.image_size, config.vision_config.image_size, 3))
@@ -834,7 +846,7 @@ class FlaxCLIPPreTrainedModel(FlaxPreTrainedModel):
                 Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
                 provide it.
 
-                Indices can be obtained using [`CLIPTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+                Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
                 [`PreTrainedTokenizer.__call__`] for details.
 
                 [What are input IDs?](../glossary#input-ids)
@@ -846,10 +858,10 @@ class FlaxCLIPPreTrainedModel(FlaxPreTrainedModel):
         Examples:
 
         ```python
-        >>> from transformers import CLIPTokenizer, FlaxCLIPModel
+        >>> from transformers import AutoTokenizer, FlaxCLIPModel
 
         >>> model = FlaxCLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        >>> tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="np")
         >>> text_features = model.get_text_features(**inputs)
@@ -893,7 +905,7 @@ class FlaxCLIPPreTrainedModel(FlaxPreTrainedModel):
         Args:
             pixel_values (`numpy.ndarray` of shape `(batch_size, num_channels, height, width)`):
                 Pixel values. Padding will be ignored by default should you provide it. Pixel values can be obtained
-                using [`CLIPFeatureExtractor`]. See [`CLIPFeatureExtractor.__call__`] for details.
+                using [`AutoImageProcessor`]. See [`CLIPImageProcessor.__call__`] for details.
 
         Returns:
             image_features (`jnp.ndarray` of shape `(batch_size, output_dim`): The image embeddings obtained by
@@ -904,10 +916,10 @@ class FlaxCLIPPreTrainedModel(FlaxPreTrainedModel):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import CLIPProcessor, FlaxCLIPModel
+        >>> from transformers import AutoProcessor, FlaxCLIPModel
 
         >>> model = FlaxCLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -976,10 +988,10 @@ FLAX_CLIP_TEXT_MODEL_DOCSTRING = """
     Example:
 
     ```python
-    >>> from transformers import CLIPTokenizer, FlaxCLIPTextModel
+    >>> from transformers import AutoTokenizer, FlaxCLIPTextModel
 
     >>> model = FlaxCLIPTextModel.from_pretrained("openai/clip-vit-base-patch32")
-    >>> tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    >>> tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
     >>> inputs = tokenizer(["a photo of a cat", "a photo of a dog"], padding=True, return_tensors="np")
 
@@ -1031,10 +1043,10 @@ FLAX_CLIP_VISION_MODEL_DOCSTRING = """
     ```python
     >>> from PIL import Image
     >>> import requests
-    >>> from transformers import CLIPProcessor, FlaxCLIPVisionModel
+    >>> from transformers import AutoProcessor, FlaxCLIPVisionModel
 
     >>> model = FlaxCLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
-    >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
     >>> image = Image.open(requests.get(url, stream=True).raw)
@@ -1158,10 +1170,10 @@ FLAX_CLIP_MODEL_DOCSTRING = """
     >>> import jax
     >>> from PIL import Image
     >>> import requests
-    >>> from transformers import CLIPProcessor, FlaxCLIPModel
+    >>> from transformers import AutoProcessor, FlaxCLIPModel
 
     >>> model = FlaxCLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    >>> processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    >>> processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
     >>> image = Image.open(requests.get(url, stream=True).raw)

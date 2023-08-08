@@ -19,13 +19,17 @@ from typing import List, Optional, Union
 import numpy as np
 import PIL.Image
 
-from transformers.image_utils import PILImageResampling
-from transformers.utils.generic import TensorType
-
 from ...image_processing_utils import BaseImageProcessor, BatchFeature
-from ...image_transforms import rescale, resize, to_channel_dimension_format
-from ...image_utils import ChannelDimension, get_image_size, is_batched, to_numpy_array, valid_images
-from ...utils import logging
+from ...image_transforms import resize, to_channel_dimension_format
+from ...image_utils import (
+    ChannelDimension,
+    PILImageResampling,
+    get_image_size,
+    make_list_of_images,
+    to_numpy_array,
+    valid_images,
+)
+from ...utils import TensorType, logging
 
 
 logger = logging.get_logger(__name__)
@@ -57,7 +61,7 @@ class GLPNImageProcessor(BaseImageProcessor):
         size_divisor: int = 32,
         resample=PILImageResampling.BILINEAR,
         do_rescale: bool = True,
-        **kwargs
+        **kwargs,
     ) -> None:
         self.do_resize = do_resize
         self.do_rescale = do_rescale
@@ -66,7 +70,12 @@ class GLPNImageProcessor(BaseImageProcessor):
         super().__init__(**kwargs)
 
     def resize(
-        self, image: np.ndarray, size_divisor: int, resample, data_format: Optional[ChannelDimension] = None, **kwargs
+        self,
+        image: np.ndarray,
+        size_divisor: int,
+        resample: PILImageResampling = PILImageResampling.BILINEAR,
+        data_format: Optional[ChannelDimension] = None,
+        **kwargs,
     ) -> np.ndarray:
         """
         Resize the image, rounding the (height, width) dimensions down to the closest multiple of size_divisor.
@@ -96,28 +105,6 @@ class GLPNImageProcessor(BaseImageProcessor):
         new_w = width // size_divisor * size_divisor
         image = resize(image, (new_h, new_w), resample=resample, data_format=data_format, **kwargs)
         return image
-
-    def rescale(
-        self, image: np.ndarray, scale: float, data_format: Optional[ChannelDimension] = None, **kwargs
-    ) -> np.ndarray:
-        """
-        Rescale the image by the given scaling factor `scale`.
-
-        Args:
-            image (`np.ndarray`):
-                The image to rescale.
-            scale (`float`):
-                The scaling factor to rescale pixel values by.
-            data_format (`ChannelDimension` or `str`, *optional*):
-                The channel dimension format for the output image. If `None`, the channel dimension format of the input
-                image is used. Can be one of:
-                - `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
-                - `ChannelDimension.LAST`: image in (height, width, num_channels) format.
-
-        Returns:
-            `np.ndarray`: The rescaled image.
-        """
-        return rescale(image=image, scale=scale, data_format=data_format, **kwargs)
 
     def preprocess(
         self,
@@ -166,8 +153,7 @@ class GLPNImageProcessor(BaseImageProcessor):
         if do_resize and size_divisor is None:
             raise ValueError("size_divisor is required for resizing")
 
-        if not is_batched(images):
-            images = [images]
+        images = make_list_of_images(images)
 
         if not valid_images(images):
             raise ValueError("Invalid image(s)")

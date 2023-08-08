@@ -62,7 +62,7 @@ if is_vision_available():
     import PIL
     from PIL import Image
 
-    from transformers import ViTFeatureExtractor
+    from transformers import ViTImageProcessor
 
 
 @require_torch
@@ -135,7 +135,7 @@ class EncoderDecoderMixin:
         decoder_attention_mask,
         return_dict,
         pixel_values=None,
-        **kwargs
+        **kwargs,
     ):
         encoder_model, decoder_model = self.get_encoder_decoder_model(config, decoder_config)
         kwargs = {"encoder_model": encoder_model, "decoder_model": decoder_model, "return_dict": return_dict}
@@ -226,7 +226,7 @@ class EncoderDecoderMixin:
         decoder_attention_mask,
         labels=None,
         pixel_values=None,
-        **kwargs
+        **kwargs,
     ):
         # make the decoder inputs a different shape from the encoder inputs to harden the test
         decoder_input_ids = decoder_input_ids[:, :-1]
@@ -402,7 +402,7 @@ class DeiT2RobertaModelTest(EncoderDecoderMixin, unittest.TestCase):
         decoder_attention_mask,
         labels=None,
         pixel_values=None,
-        **kwargs
+        **kwargs,
     ):
         # make the decoder inputs a different shape from the encoder inputs to harden the test
         decoder_input_ids = decoder_input_ids[:, :-1]
@@ -590,7 +590,7 @@ class Swin2BartModelTest(EncoderDecoderMixin, unittest.TestCase):
         decoder_attention_mask,
         labels=None,
         pixel_values=None,
-        **kwargs
+        **kwargs,
     ):
         # make the decoder inputs a different shape from the encoder inputs to harden the test
         decoder_input_ids = decoder_input_ids[:, :-1]
@@ -747,10 +747,9 @@ class TrOCRModelIntegrationTest(unittest.TestCase):
 class ViT2GPT2ModelIntegrationTest(unittest.TestCase):
     @slow
     def test_inference_coco_en(self):
-
         loc = "ydshieh/vit-gpt2-coco-en"
 
-        feature_extractor = ViTFeatureExtractor.from_pretrained(loc)
+        image_processor = ViTImageProcessor.from_pretrained(loc)
         tokenizer = AutoTokenizer.from_pretrained(loc)
         model = VisionEncoderDecoderModel.from_pretrained(loc)
         model.to(torch_device)
@@ -758,7 +757,7 @@ class ViT2GPT2ModelIntegrationTest(unittest.TestCase):
 
         # We will verify our results on an image of cute cats
         img = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")
-        pixel_values = feature_extractor(images=img, return_tensors="pt").pixel_values.to(torch_device)
+        pixel_values = image_processor(images=img, return_tensors="pt").pixel_values.to(torch_device)
 
         decoder_input_ids = torch.tensor([[model.config.decoder_start_token_id]]).to(torch_device)
 
@@ -787,7 +786,6 @@ class ViT2GPT2ModelIntegrationTest(unittest.TestCase):
         self.assertLessEqual(max_diff, 1e-4)
 
         def generate_step(pixel_values):
-
             outputs = model.generate(
                 pixel_values, max_length=16, num_beams=4, return_dict_in_generate=True, output_scores=True
             )

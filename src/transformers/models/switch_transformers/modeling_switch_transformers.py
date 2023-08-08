@@ -49,7 +49,6 @@ from .configuration_switch_transformers import SwitchTransformersConfig
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "SwitchTransformersConfig"
-_TOKENIZER_FOR_DOC = "T5Tokenizer"
 _CHECKPOINT_FOR_DOC = "google/switch-base-8"
 
 ####################################################
@@ -242,7 +241,6 @@ class SwitchTransformersLayerNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
-
         # SwitchTransformers uses a layer_norm which only scales and doesn't shift, which is also known as Root Mean
         # Square Layer Normalization https://arxiv.org/abs/1910.07467 thus varience is calculated
         # w/o mean and there is no bias. Additionally we want to make sure that the accumulation for
@@ -274,6 +272,12 @@ class SwitchTransformersDenseActDense(nn.Module):
         hidden_states = self.wi(hidden_states)
         hidden_states = self.act(hidden_states)
         hidden_states = self.dropout(hidden_states)
+        if (
+            isinstance(self.wo.weight, torch.Tensor)
+            and hidden_states.dtype != self.wo.weight.dtype
+            and self.wo.weight.dtype != torch.int8
+        ):
+            hidden_states = hidden_states.to(self.wo.weight.dtype)
         hidden_states = self.wo(hidden_states)
         return hidden_states
 
@@ -333,7 +337,6 @@ class SwitchTransformersSparseMLP(nn.Module):
 
         next_states = hidden_states.clone()
         for idx, expert in enumerate(self.experts.values()):
-
             token_indices = router_mask[:, :, idx].bool()
             next_states[token_indices] = expert(hidden_states[token_indices])
 
@@ -512,9 +515,10 @@ class SwitchTransformersAttention(nn.Module):
         real_seq_length = seq_length
 
         if past_key_value is not None:
-            assert (
-                len(past_key_value) == 2
-            ), f"past_key_value should have 2 past states: keys and values. Got { len(past_key_value)} past states"
+            if len(past_key_value) != 2:
+                raise ValueError(
+                    f"past_key_value should have 2 past states: keys and values. Got { len(past_key_value)} past states"
+                )
             real_seq_length += past_key_value[0].shape[2] if query_length is None else query_length
 
         key_length = real_seq_length if key_value_states is None else key_value_states.shape[1]
@@ -720,7 +724,6 @@ class SwitchTransformersBlock(nn.Module):
         output_router_logits=True,
         return_dict=True,
     ):
-
         if past_key_value is not None:
             if not self.is_decoder:
                 logger.warning("`past_key_values` is passed to the encoder. Please make sure this is intended.")
@@ -795,7 +798,7 @@ class SwitchTransformersBlock(nn.Module):
         if isinstance(hidden_states, tuple):
             hidden_states, router_tuple = hidden_states
         else:
-            router_tuple = (None,)
+            router_tuple = (torch.tensor([0], device=hidden_states.device),)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -938,7 +941,6 @@ class SwitchTransformersStack(SwitchTransformersPreTrainedModel):
         config.num_layers = config.num_decoder_layers if self.is_decoder else config.num_layers
         self.block = nn.ModuleList()
         for i in range(config.num_layers):
-
             is_sparse = (i % sparse_step == 1) if sparse_step > 0 else False
 
             self.block.append(
@@ -1038,6 +1040,13 @@ class SwitchTransformersStack(SwitchTransformersPreTrainedModel):
         else:
             encoder_extended_attention_mask = None
 
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
         # Prepare head mask if needed
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
         cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
@@ -1059,11 +1068,6 @@ class SwitchTransformersStack(SwitchTransformersPreTrainedModel):
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
             if self.gradient_checkpointing and self.training:
-                if use_cache:
-                    logger.warning(
-                        "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-                    )
-                    use_cache = False
 
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
@@ -1186,7 +1190,7 @@ SWITCH_TRANSFORMERS_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. SWITCH_TRANSFORMERS is a model with relative position
             embeddings so you should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for detail.
 
             [What are input IDs?](../glossary#input-ids)
@@ -1203,7 +1207,7 @@ SWITCH_TRANSFORMERS_INPUTS_DOCSTRING = r"""
         decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
             Indices of decoder input sequence tokens in the vocabulary.
 
-            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are decoder input IDs?](../glossary#decoder-input-ids)
@@ -1284,7 +1288,7 @@ SWITCH_TRANSFORMERS_ENCODER_INPUTS_DOCSTRING = r"""
             Indices of input sequence tokens in the vocabulary. SWITCH_TRANSFORMERS is a model with relative position
             embeddings so you should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using [`T5Tokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for detail.
 
             To know more on how to prepare `input_ids` for pretraining take a look a [SWITCH_TRANSFORMERS
@@ -1333,7 +1337,7 @@ num_heads)`.
     SWITCH_TRANSFORMERS_START_DOCSTRING,
 )
 class SwitchTransformersModel(SwitchTransformersPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"encoder.embed_tokens.weight", r"decoder.embed_tokens.weight"]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
 
     def __init__(self, config: SwitchTransformersConfig):
         super().__init__(config)
@@ -1405,9 +1409,9 @@ class SwitchTransformersModel(SwitchTransformersPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import T5Tokenizer, SwitchTransformersModel
+        >>> from transformers import AutoTokenizer, SwitchTransformersModel
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("google/switch-base-8")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/switch-base-8")
         >>> model = SwitchTransformersModel.from_pretrained("google/switch-base-8")
 
         >>> input_ids = tokenizer(
@@ -1501,11 +1505,7 @@ class SwitchTransformersModel(SwitchTransformersPreTrainedModel):
     """SWITCH_TRANSFORMERS Model with a `language modeling` head on top.""", SWITCH_TRANSFORMERS_START_DOCSTRING
 )
 class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [
-        r"encoder.embed_tokens.weight",
-        r"decoder.embed_tokens.weight",
-        r"lm_head.weight",
-    ]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight", "lm_head.weight"]
 
     def __init__(self, config: SwitchTransformersConfig):
         super().__init__(config)
@@ -1589,9 +1589,9 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
         Examples:
 
         ```python
-        >>> from transformers import T5Tokenizer, SwitchTransformersForConditionalGeneration
+        >>> from transformers import AutoTokenizer, SwitchTransformersForConditionalGeneration
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("google/switch-base-8")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/switch-base-8")
         >>> model = SwitchTransformersForConditionalGeneration.from_pretrained("google/switch-base-8")
 
         >>> # training
@@ -1677,48 +1677,45 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
         decoder_z_loss = None
         decoder_aux_loss = None
 
-        if labels is not None:
-            loss_fct = CrossEntropyLoss(ignore_index=-100)
-            # todo check in the config if router loss enables
-
-            if output_router_logits:
-                # Compute the router loss (z_loss + auxiliary loss) for each router in the encoder and decoder
-                encoder_router_logits, encoder_expert_indexes = self._unpack_router_logits(
-                    encoder_outputs.router_probs
-                )
+        if output_router_logits:
+            # Compute the router loss (z_loss + auxiliary loss) for each router in the encoder and decoder
+            if self.encoder.config.encoder_sparse_step > 1:
+                encoder_router_logits, encoder_expert_indexes = self._unpack_router_logits(encoder_outputs[-1])
                 encoder_z_loss = router_z_loss_func(encoder_router_logits)
                 encoder_router_probs = nn.Softmax(dim=-1)(encoder_router_logits)
                 encoder_aux_loss = load_balancing_loss_func(encoder_router_probs, encoder_expert_indexes)
+            else:
+                encoder_z_loss = 0
+                encoder_aux_loss = 0
 
-                decoder_router_logits, decoder_expert_indexes = self._unpack_router_logits(
-                    decoder_outputs.router_probs
-                )
+            if self.decoder.config.decoder_sparse_step > 1:
+                decoder_router_logits, decoder_expert_indexes = self._unpack_router_logits(decoder_outputs[-1])
                 decoder_z_loss = router_z_loss_func(decoder_router_logits)
                 decoder_router_probs = nn.Softmax(dim=-1)(decoder_router_logits)
                 decoder_aux_loss = load_balancing_loss_func(decoder_router_probs, decoder_expert_indexes)
+            else:
+                decoder_z_loss = 0
+                decoder_aux_loss = 0
 
+        if labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-100)
+            # move labels to correct device to enable PP
+            labels = labels.to(lm_logits.device)
             loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
 
-            if output_router_logits and labels is not None:
+            if output_router_logits:
                 z_loss = self.router_z_loss_coef * (encoder_z_loss + decoder_z_loss)
                 aux_loss = self.router_aux_loss_coef * (encoder_aux_loss + decoder_aux_loss)
                 loss = loss + z_loss + aux_loss
 
         if not return_dict:
             output = (lm_logits,)
-            if output_router_logits:  # only return the loss if they are not None
-                output += (
-                    encoder_z_loss,
-                    encoder_aux_loss,
-                    decoder_z_loss,
-                    decoder_aux_loss,
-                    *decoder_outputs[1:],
-                    *encoder_outputs,
-                )
-            else:
-                output += (*decoder_outputs[1:], *encoder_outputs)
+            if output_router_logits:
+                output += (encoder_z_loss, encoder_aux_loss, decoder_z_loss, decoder_aux_loss)
+            output += (*decoder_outputs[1:], *encoder_outputs)
 
             return ((loss,) + output) if loss is not None else output
+
         return Seq2SeqMoEOutput(
             loss=loss,
             logits=lm_logits,
@@ -1730,18 +1727,18 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
             decoder_hidden_states=decoder_outputs.hidden_states,
             decoder_attentions=decoder_outputs.attentions,
             cross_attentions=decoder_outputs.cross_attentions,
+            decoder_router_logits=decoder_outputs.router_probs,
             encoder_last_hidden_state=encoder_outputs.last_hidden_state,
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
             encoder_router_logits=encoder_outputs.router_probs,
-            decoder_router_logits=decoder_outputs.router_probs,
         )
 
     def _unpack_router_logits(self, router_outputs):
         total_router_logits = []
         total_expert_indexes = []
         for router_output in router_outputs:
-            if router_output[0] is not None:
+            if len(router_output[0].shape) > 1:
                 router_logits, expert_indexes = router_output
                 total_router_logits.append(router_logits)
                 total_expert_indexes.append(expert_indexes)
@@ -1757,9 +1754,8 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
         cross_attn_head_mask=None,
         use_cache=None,
         encoder_outputs=None,
-        **kwargs
+        **kwargs,
     ):
-
         # cut decoder_input_ids if past is used
         if past_key_values is not None:
             input_ids = input_ids[:, -1:]
@@ -1778,15 +1774,15 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
         return self._shift_right(labels)
 
-    def _reorder_cache(self, past, beam_idx):
+    def _reorder_cache(self, past_key_values, beam_idx):
         # if decoder past is not included in output
         # speedy decoding is disabled and no need to reorder
-        if past is None:
+        if past_key_values is None:
             logger.warning("You might want to consider setting `use_cache=True` to speed up decoding")
-            return past
+            return past_key_values
 
         reordered_decoder_past = ()
-        for layer_past_states in past:
+        for layer_past_states in past_key_values:
             # get the correct batch idx from layer past batch dim
             # batch dim of `past` is at 2nd position
             reordered_layer_past_states = ()
@@ -1817,7 +1813,7 @@ class SwitchTransformersForConditionalGeneration(SwitchTransformersPreTrainedMod
     SWITCH_TRANSFORMERS_START_DOCSTRING,
 )
 class SwitchTransformersEncoderModel(SwitchTransformersPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"encoder.embed_tokens.weight"]
+    _tied_weights_keys = ["encoder.embed_tokens.weight"]
 
     def __init__(self, config: SwitchTransformersConfig):
         super().__init__(config)
@@ -1871,9 +1867,9 @@ class SwitchTransformersEncoderModel(SwitchTransformersPreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import T5Tokenizer, SwitchTransformersEncoderModel
+        >>> from transformers import AutoTokenizer, SwitchTransformersEncoderModel
 
-        >>> tokenizer = T5Tokenizer.from_pretrained("google/switch-base-8")
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/switch-base-8")
         >>> model = SwitchTransformersEncoderModel.from_pretrained("google/switch-base-8")
         >>> input_ids = tokenizer(
         ...     "Studies have been shown that owning a dog is good for you", return_tensors="pt"

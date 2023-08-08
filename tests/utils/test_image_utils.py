@@ -18,9 +18,11 @@ import unittest
 import datasets
 import numpy as np
 import pytest
+from requests import ReadTimeout
 
+from tests.pipelines.test_pipelines_document_question_answering import INVOICE_URL
 from transformers import is_torch_available, is_vision_available
-from transformers.image_utils import ChannelDimension, get_channel_dimension_axis
+from transformers.image_utils import ChannelDimension, get_channel_dimension_axis, make_list_of_images
 from transformers.testing_utils import require_torch, require_vision
 
 
@@ -101,6 +103,58 @@ class ImageFeatureExtractionTester(unittest.TestCase):
         self.assertTrue(array5.dtype, np.float32)
         self.assertEqual(array5.shape, (3, 16, 32))
         self.assertTrue(np.array_equal(array5, array1))
+
+    def test_make_list_of_images_numpy(self):
+        # Test a single image is converted to a list of 1 image
+        images = np.random.randint(0, 256, (16, 32, 3))
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 1)
+        self.assertTrue(np.array_equal(images_list[0], images))
+        self.assertIsInstance(images_list, list)
+
+        # Test a batch of images is converted to a list of images
+        images = np.random.randint(0, 256, (4, 16, 32, 3))
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 4)
+        self.assertTrue(np.array_equal(images_list[0], images[0]))
+        self.assertIsInstance(images_list, list)
+
+        # Test a list of images is not modified
+        images = [np.random.randint(0, 256, (16, 32, 3)) for _ in range(4)]
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 4)
+        self.assertTrue(np.array_equal(images_list[0], images[0]))
+        self.assertIsInstance(images_list, list)
+
+        # Test batched masks with no channel dimension are converted to a list of masks
+        masks = np.random.randint(0, 2, (4, 16, 32))
+        masks_list = make_list_of_images(masks, expected_ndims=2)
+        self.assertEqual(len(masks_list), 4)
+        self.assertTrue(np.array_equal(masks_list[0], masks[0]))
+        self.assertIsInstance(masks_list, list)
+
+    @require_torch
+    def test_make_list_of_images_torch(self):
+        # Test a single image is converted to a list of 1 image
+        images = torch.randint(0, 256, (16, 32, 3))
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 1)
+        self.assertTrue(np.array_equal(images_list[0], images))
+        self.assertIsInstance(images_list, list)
+
+        # Test a batch of images is converted to a list of images
+        images = torch.randint(0, 256, (4, 16, 32, 3))
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 4)
+        self.assertTrue(np.array_equal(images_list[0], images[0]))
+        self.assertIsInstance(images_list, list)
+
+        # Test a list of images is left unchanged
+        images = [torch.randint(0, 256, (16, 32, 3)) for _ in range(4)]
+        images_list = make_list_of_images(images)
+        self.assertEqual(len(images_list), 4)
+        self.assertTrue(np.array_equal(images_list[0], images[0]))
+        self.assertIsInstance(images_list, list)
 
     @require_torch
     def test_conversion_torch_to_array(self):
@@ -426,6 +480,16 @@ class ImageFeatureExtractionTester(unittest.TestCase):
 
 @require_vision
 class LoadImageTester(unittest.TestCase):
+    def test_load_img_url(self):
+        img = load_image(INVOICE_URL)
+        img_arr = np.array(img)
+
+        self.assertEqual(img_arr.shape, (1061, 750, 3))
+
+    def test_load_img_url_timeout(self):
+        with self.assertRaises(ReadTimeout):
+            load_image(INVOICE_URL, timeout=0.001)
+
     def test_load_img_local(self):
         img = load_image("./tests/fixtures/tests_samples/COCO/000000039769.png")
         img_arr = np.array(img)
