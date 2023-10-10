@@ -43,7 +43,7 @@ open-source contribution to Transformers. Along the way, you will:
 -   understand the design principles of one of the most popular NLP
     libraries
 -   learn how to do efficiently test large NLP models
--   learn how to integrate Python utilities like `black`, `isort`,
+-   learn how to integrate Python utilities like `black`, `ruff`,
     `make fix-copies` into a library to always ensure clean and readable
     code
 
@@ -848,7 +848,7 @@ model.save_pretrained("/path/to/converted/checkpoint/folder")
 Having managed to correctly load the pretrained weights into the 🤗
 Transformers implementation, you should now make sure that the forward
 pass is correctly implemented. In [Get familiar with the original
-repository](#run-a-pretrained-checkpoint-using-the-original-repository),
+repository](#34-run-a-pretrained-checkpoint-using-the-original-repository),
 you have already created a script that runs a forward pass of the model
 using the original repository. Now you should write an analogous script
 using the 🤗 Transformers implementation instead of the original one. It

@@ -14,7 +14,7 @@
 # limitations under the License.
 """ TensorFlow RegNet model."""
 
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import tensorflow as tf
 
@@ -35,7 +35,6 @@ logger = logging.get_logger(__name__)
 
 # General docstring
 _CONFIG_FOR_DOC = "RegNetConfig"
-_FEAT_EXTRACTOR_FOR_DOC = "AutoImageProcessor"
 
 # Base docstring
 _CHECKPOINT_FOR_DOC = "facebook/regnet-y-040"
@@ -248,7 +247,7 @@ class TFRegNetStage(tf.keras.layers.Layer):
 class TFRegNetEncoder(tf.keras.layers.Layer):
     def __init__(self, config: RegNetConfig, **kwargs):
         super().__init__(**kwargs)
-        self.stages = list()
+        self.stages = []
         # based on `downsample_in_first_stage`, the first layer of the first stage may or may not downsample the input
         self.stages.append(
             TFRegNetStage(
@@ -346,33 +345,8 @@ class TFRegNetPreTrainedModel(TFPreTrainedModel):
     main_input_name = "pixel_values"
 
     @property
-    def dummy_inputs(self) -> Dict[str, tf.Tensor]:
-        """
-        Dummy inputs to build the network.
-
-        Returns:
-            `Dict[str, tf.Tensor]`: The dummy inputs.
-        """
-        VISION_DUMMY_INPUTS = tf.random.uniform(shape=(3, self.config.num_channels, 224, 224), dtype=tf.float32)
-        return {"pixel_values": tf.constant(VISION_DUMMY_INPUTS)}
-
-    @tf.function(
-        input_signature=[
-            {
-                "pixel_values": tf.TensorSpec((None, None, None, None), tf.float32, name="pixel_values"),
-            }
-        ]
-    )
-    def serving(self, inputs):
-        """
-        Method used for serving the model.
-
-        Args:
-            inputs (`Dict[str, tf.Tensor]`):
-                The input of the saved model as a dictionary of tensors.
-        """
-        output = self.call(inputs)
-        return self.serving_output(output)
+    def input_signature(self):
+        return {"pixel_values": tf.TensorSpec(shape=(None, self.config.num_channels, 224, 224), dtype=tf.float32)}
 
 
 REGNET_START_DOCSTRING = r"""
@@ -390,7 +364,7 @@ REGNET_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`tf.Tensor` of shape `(batch_size, num_channels, height, width)`):
             Pixel values. Pixel values can be obtained using [`AutoImageProcessor`]. See
-            [`AutoImageProcessor.__call__`] for details.
+            [`ConveNextImageProcessor.__call__`] for details.
         output_hidden_states (`bool`, *optional*):
             Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
             more detail.
@@ -411,7 +385,6 @@ class TFRegNetModel(TFRegNetPreTrainedModel):
     @unpack_inputs
     @add_start_docstrings_to_model_forward(REGNET_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_FEAT_EXTRACTOR_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=TFBaseModelOutputWithPoolingAndNoAttention,
         config_class=_CONFIG_FOR_DOC,
@@ -423,7 +396,7 @@ class TFRegNetModel(TFRegNetPreTrainedModel):
         pixel_values: tf.Tensor,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
-        training=False,
+        training: bool = False,
     ) -> Union[TFBaseModelOutputWithPoolingAndNoAttention, Tuple[tf.Tensor]]:
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -443,16 +416,6 @@ class TFRegNetModel(TFRegNetPreTrainedModel):
             last_hidden_state=outputs.last_hidden_state,
             pooler_output=outputs.pooler_output,
             hidden_states=outputs.hidden_states,
-        )
-
-    def serving_output(
-        self, output: TFBaseModelOutputWithPoolingAndNoAttention
-    ) -> TFBaseModelOutputWithPoolingAndNoAttention:
-        # hidden_states not converted to Tensor with tf.convert_to_tensor as they are all of different dimensions
-        return TFBaseModelOutputWithPoolingAndNoAttention(
-            last_hidden_state=output.last_hidden_state,
-            pooler_output=output.pooler_output,
-            hidden_states=output.hidden_states,
         )
 
 
@@ -477,7 +440,6 @@ class TFRegNetForImageClassification(TFRegNetPreTrainedModel, TFSequenceClassifi
     @unpack_inputs
     @add_start_docstrings_to_model_forward(REGNET_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_FEAT_EXTRACTOR_FOR_DOC,
         checkpoint=_IMAGE_CLASS_CHECKPOINT,
         output_type=TFSequenceClassifierOutput,
         config_class=_CONFIG_FOR_DOC,
@@ -485,11 +447,11 @@ class TFRegNetForImageClassification(TFRegNetPreTrainedModel, TFSequenceClassifi
     )
     def call(
         self,
-        pixel_values: tf.Tensor = None,
-        labels: tf.Tensor = None,
-        output_hidden_states: bool = None,
-        return_dict: bool = None,
-        training=False,
+        pixel_values: Optional[tf.Tensor] = None,
+        labels: Optional[tf.Tensor] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        training: bool = False,
     ) -> Union[TFSequenceClassifierOutput, Tuple[tf.Tensor]]:
         r"""
         labels (`tf.Tensor` of shape `(batch_size,)`, *optional*):
@@ -517,7 +479,3 @@ class TFRegNetForImageClassification(TFRegNetPreTrainedModel, TFSequenceClassifi
             return ((loss,) + output) if loss is not None else output
 
         return TFSequenceClassifierOutput(loss=loss, logits=logits, hidden_states=outputs.hidden_states)
-
-    def serving_output(self, output: TFSequenceClassifierOutput) -> TFSequenceClassifierOutput:
-        # hidden_states not converted to Tensor with tf.convert_to_tensor as they are all of different dimensions
-        return TFSequenceClassifierOutput(logits=output.logits, hidden_states=output.hidden_states)

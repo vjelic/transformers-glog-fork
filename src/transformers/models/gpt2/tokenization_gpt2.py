@@ -18,16 +18,13 @@
 import json
 import os
 from functools import lru_cache
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import regex as re
 
 from ...tokenization_utils import AddedToken, PreTrainedTokenizer
 from ...utils import logging
 
-
-if TYPE_CHECKING:
-    from transformers.pipelines.conversational import Conversation
 
 logger = logging.get_logger(__name__)
 
@@ -108,12 +105,14 @@ class GPT2Tokenizer(PreTrainedTokenizer):
     This tokenizer has been trained to treat spaces like parts of the tokens (a bit like sentencepiece) so a word will
     be encoded differently whether it is at the beginning of the sentence (without space) or not:
 
-    ```
+    ```python
     >>> from transformers import GPT2Tokenizer
+
     >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-    >>> tokenizer("Hello world")['input_ids']
+    >>> tokenizer("Hello world")["input_ids"]
     [15496, 995]
-    >>> tokenizer(" Hello world")['input_ids']
+
+    >>> tokenizer(" Hello world")["input_ids"]
     [18435, 995]
     ```
 
@@ -165,22 +164,13 @@ class GPT2Tokenizer(PreTrainedTokenizer):
         pad_token=None,
         add_prefix_space=False,
         add_bos_token=False,
-        **kwargs
+        **kwargs,
     ):
         bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
         eos_token = AddedToken(eos_token, lstrip=False, rstrip=False) if isinstance(eos_token, str) else eos_token
         unk_token = AddedToken(unk_token, lstrip=False, rstrip=False) if isinstance(unk_token, str) else unk_token
         pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
-        super().__init__(
-            errors=errors,
-            unk_token=unk_token,
-            bos_token=bos_token,
-            eos_token=eos_token,
-            pad_token=pad_token,
-            add_prefix_space=add_prefix_space,
-            add_bos_token=add_bos_token,
-            **kwargs,
-        )
+
         self.add_bos_token = add_bos_token
 
         with open(vocab_file, encoding="utf-8") as vocab_handle:
@@ -198,6 +188,17 @@ class GPT2Tokenizer(PreTrainedTokenizer):
 
         # Should have added re.IGNORECASE so BPE merges can happen for capitalized versions of contractions
         self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+
+        super().__init__(
+            errors=errors,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            pad_token=pad_token,
+            add_prefix_space=add_prefix_space,
+            add_bos_token=add_bos_token,
+            **kwargs,
+        )
 
     @property
     def vocab_size(self):
@@ -352,10 +353,9 @@ class GPT2Tokenizer(PreTrainedTokenizer):
             text = " " + text
         return (text, kwargs)
 
-    def _build_conversation_input_ids(self, conversation: "Conversation") -> List[int]:
-        input_ids = []
-        for is_user, text in conversation.iter_texts():
-            input_ids.extend(self.encode(text, add_special_tokens=False) + [self.eos_token_id])
-        if len(input_ids) > self.model_max_length:
-            input_ids = input_ids[-self.model_max_length :]
-        return input_ids
+    @property
+    def default_chat_template(self):
+        """
+        A simple chat template that ignores role information and just concatenates messages with EOS tokens.
+        """
+        return "{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}"

@@ -9,12 +9,11 @@ from .base import PIPELINE_INIT_ARGS, Pipeline
 
 if is_decord_available():
     import numpy as np
-
     from decord import VideoReader
 
 
 if is_torch_available():
-    from ..models.auto.modeling_auto import MODEL_FOR_VIDEO_CLASSIFICATION_MAPPING
+    from ..models.auto.modeling_auto import MODEL_FOR_VIDEO_CLASSIFICATION_MAPPING_NAMES
 
 logger = logging.get_logger(__name__)
 
@@ -35,7 +34,7 @@ class VideoClassificationPipeline(Pipeline):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         requires_backends(self, "decord")
-        self.check_model_type(MODEL_FOR_VIDEO_CLASSIFICATION_MAPPING)
+        self.check_model_type(MODEL_FOR_VIDEO_CLASSIFICATION_MAPPING_NAMES)
 
     def _sanitize_parameters(self, top_k=None, num_frames=None, frame_sampling_rate=None):
         preprocess_params = {}
@@ -85,7 +84,6 @@ class VideoClassificationPipeline(Pipeline):
         return super().__call__(videos, **kwargs)
 
     def preprocess(self, video, num_frames=None, frame_sampling_rate=1):
-
         if num_frames is None:
             num_frames = self.model.config.num_frames
 
@@ -102,7 +100,7 @@ class VideoClassificationPipeline(Pipeline):
         video = videoreader.get_batch(indices).asnumpy()
         video = list(video)
 
-        model_inputs = self.feature_extractor(video, return_tensors=self.framework)
+        model_inputs = self.image_processor(video, return_tensors=self.framework)
         return model_inputs
 
     def _forward(self, model_inputs):

@@ -140,34 +140,18 @@ class NllbTokenizer(PreTrainedTokenizer):
         tgt_lang=None,
         sp_model_kwargs: Optional[Dict[str, Any]] = None,
         additional_special_tokens=None,
-        **kwargs
+        legacy_behaviour=False,
+        **kwargs,
     ):
-
         # Mask token behave like a normal word, i.e. include the space before it
         mask_token = AddedToken(mask_token, lstrip=True, rstrip=False) if isinstance(mask_token, str) else mask_token
 
         self.sp_model_kwargs = {} if sp_model_kwargs is None else sp_model_kwargs
-
-        super().__init__(
-            bos_token=bos_token,
-            eos_token=eos_token,
-            unk_token=unk_token,
-            sep_token=sep_token,
-            cls_token=cls_token,
-            pad_token=pad_token,
-            mask_token=mask_token,
-            tokenizer_file=tokenizer_file,
-            src_lang=src_lang,
-            tgt_lang=tgt_lang,
-            additional_special_tokens=additional_special_tokens,
-            sp_model_kwargs=self.sp_model_kwargs,
-            **kwargs,
-        )
+        self.legacy_behaviour = legacy_behaviour
 
         self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
         self.sp_model.Load(str(vocab_file))
         self.vocab_file = vocab_file
-
         # Original fairseq vocab and spm vocab must be "aligned":
         # Vocab    |    0    |    1    |   2    |    3    |  4   |  5   |  6   |   7  |   8  |  9
         # -------- | ------- | ------- | ------ | ------- | ---- | ---- | ---- | ---- | ---- | ----
@@ -189,16 +173,35 @@ class NllbTokenizer(PreTrainedTokenizer):
 
         self.fairseq_tokens_to_ids.update(self.lang_code_to_id)
         self.fairseq_ids_to_tokens = {v: k for k, v in self.fairseq_tokens_to_ids.items()}
-        self._additional_special_tokens = list(self.lang_code_to_id.keys())
-
-        if additional_special_tokens is not None:
-            # Only add those special tokens if they are not already there.
-            self._additional_special_tokens.extend(
-                [t for t in additional_special_tokens if t not in self._additional_special_tokens]
-            )
 
         self._src_lang = src_lang if src_lang is not None else "eng_Latn"
         self.cur_lang_code_id = self.lang_code_to_id[self._src_lang]
+
+        _additional_special_tokens = list(self.lang_code_to_id.keys())
+
+        if additional_special_tokens is not None:
+            # Only add those special tokens if they are not already there.
+            _additional_special_tokens.extend(
+                [t for t in additional_special_tokens if t not in _additional_special_tokens]
+            )
+
+        super().__init__(
+            bos_token=bos_token,
+            eos_token=eos_token,
+            unk_token=unk_token,
+            sep_token=sep_token,
+            cls_token=cls_token,
+            pad_token=pad_token,
+            mask_token=mask_token,
+            tokenizer_file=tokenizer_file,
+            src_lang=src_lang,
+            tgt_lang=tgt_lang,
+            additional_special_tokens=_additional_special_tokens,
+            sp_model_kwargs=self.sp_model_kwargs,
+            legacy_behaviour=legacy_behaviour,
+            **kwargs,
+        )
+
         self.tgt_lang = tgt_lang
         self.set_src_lang_special_tokens(self._src_lang)
 
@@ -389,13 +392,27 @@ class NllbTokenizer(PreTrainedTokenizer):
         return self.set_tgt_lang_special_tokens(self.tgt_lang)
 
     def set_src_lang_special_tokens(self, src_lang) -> None:
-        """Reset the special tokens to the source lang setting. No prefix and suffix=[eos, src_lang_code]."""
+        """Reset the special tokens to the source lang setting.
+        - In legacy mode: No prefix and suffix=[eos, src_lang_code].
+        - In default mode: Prefix=[src_lang_code], suffix = [eos]
+        """
         self.cur_lang_code = self.lang_code_to_id[src_lang]
-        self.prefix_tokens = []
-        self.suffix_tokens = [self.eos_token_id, self.cur_lang_code]
+        if self.legacy_behaviour:
+            self.prefix_tokens = []
+            self.suffix_tokens = [self.eos_token_id, self.cur_lang_code]
+        else:
+            self.prefix_tokens = [self.cur_lang_code]
+            self.suffix_tokens = [self.eos_token_id]
 
     def set_tgt_lang_special_tokens(self, lang: str) -> None:
-        """Reset the special tokens to the target language setting. No prefix and suffix=[eos, tgt_lang_code]."""
+        """Reset the special tokens to the target lang setting.
+        - In legacy mode: No prefix and suffix=[eos, tgt_lang_code].
+        - In default mode: Prefix=[tgt_lang_code], suffix = [eos]
+        """
         self.cur_lang_code = self.lang_code_to_id[lang]
-        self.prefix_tokens = []
-        self.suffix_tokens = [self.eos_token_id, self.cur_lang_code]
+        if self.legacy_behaviour:
+            self.prefix_tokens = []
+            self.suffix_tokens = [self.eos_token_id, self.cur_lang_code]
+        else:
+            self.prefix_tokens = [self.cur_lang_code]
+            self.suffix_tokens = [self.eos_token_id]

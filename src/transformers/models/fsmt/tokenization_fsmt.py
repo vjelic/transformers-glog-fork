@@ -146,13 +146,13 @@ class FSMTTokenizer(PreTrainedTokenizer):
     this superclass for more information regarding those methods.
 
     Args:
-        langs (`List[str]`):
+        langs (`List[str]`, *optional*):
             A list of two languages to translate from and to, for instance `["en", "ru"]`.
-        src_vocab_file (`str`):
+        src_vocab_file (`str`, *optional*):
             File containing the vocabulary for the source language.
-        tgt_vocab_file (`st`):
+        tgt_vocab_file (`st`, *optional*):
             File containing the vocabulary for the target language.
-        merges_file (`str`):
+        merges_file (`str`, *optional*):
             File containing the merges.
         do_lower_case (`bool`, *optional*, defaults to `False`):
             Whether or not to lowercase the input when tokenizing.
@@ -195,21 +195,8 @@ class FSMTTokenizer(PreTrainedTokenizer):
         bos_token="<s>",
         sep_token="</s>",
         pad_token="<pad>",
-        **kwargs
+        **kwargs,
     ):
-        super().__init__(
-            langs=langs,
-            src_vocab_file=src_vocab_file,
-            tgt_vocab_file=tgt_vocab_file,
-            merges_file=merges_file,
-            do_lower_case=do_lower_case,
-            unk_token=unk_token,
-            bos_token=bos_token,
-            sep_token=sep_token,
-            pad_token=pad_token,
-            **kwargs,
-        )
-
         try:
             import sacremoses
         except ImportError:
@@ -226,10 +213,10 @@ class FSMTTokenizer(PreTrainedTokenizer):
         self.do_lower_case = do_lower_case
 
         # cache of sm.MosesPunctNormalizer instance
-        self.cache_moses_punct_normalizer = dict()
+        self.cache_moses_punct_normalizer = {}
         # cache of sm.MosesTokenizer instance
-        self.cache_moses_tokenizer = dict()
-        self.cache_moses_detokenizer = dict()
+        self.cache_moses_tokenizer = {}
+        self.cache_moses_detokenizer = {}
 
         if langs and len(langs) == 2:
             self.src_lang, self.tgt_lang = langs
@@ -250,6 +237,18 @@ class FSMTTokenizer(PreTrainedTokenizer):
         merges = [tuple(merge.split()[:2]) for merge in merges]
         self.bpe_ranks = dict(zip(merges, range(len(merges))))
         self.cache = {}
+        super().__init__(
+            langs=langs,
+            src_vocab_file=src_vocab_file,
+            tgt_vocab_file=tgt_vocab_file,
+            merges_file=merges_file,
+            do_lower_case=do_lower_case,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            sep_token=sep_token,
+            pad_token=pad_token,
+            **kwargs,
+        )
 
     # hack override
     def get_vocab(self) -> Dict[str, int]:
@@ -379,7 +378,7 @@ class FSMTTokenizer(PreTrainedTokenizer):
         split_tokens = []
         for token in text:
             if token:
-                split_tokens.extend([t for t in self.bpe(token).split(" ")])
+                split_tokens.extend(list(self.bpe(token).split(" ")))
 
         return split_tokens
 

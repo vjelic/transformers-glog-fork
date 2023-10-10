@@ -17,11 +17,12 @@ import unittest
 from transformers import (
     MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
     TF_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
-    PreTrainedTokenizer,
+    PreTrainedTokenizerBase,
     is_vision_available,
 )
 from transformers.pipelines import ImageClassificationPipeline, pipeline
 from transformers.testing_utils import (
+    is_pipeline_test,
     nested_simplify,
     require_tf,
     require_torch,
@@ -30,7 +31,7 @@ from transformers.testing_utils import (
     slow,
 )
 
-from .test_pipelines_common import ANY, PipelineTestCaseMeta
+from .test_pipelines_common import ANY
 
 
 if is_vision_available():
@@ -43,14 +44,15 @@ else:
             pass
 
 
+@is_pipeline_test
 @require_torch_or_tf
 @require_vision
-class ImageClassificationPipelineTests(unittest.TestCase, metaclass=PipelineTestCaseMeta):
+class ImageClassificationPipelineTests(unittest.TestCase):
     model_mapping = MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING
     tf_model_mapping = TF_MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING
 
-    def get_test_pipeline(self, model, tokenizer, feature_extractor):
-        image_classifier = ImageClassificationPipeline(model=model, feature_extractor=feature_extractor, top_k=2)
+    def get_test_pipeline(self, model, tokenizer, processor):
+        image_classifier = ImageClassificationPipeline(model=model, image_processor=processor, top_k=2)
         examples = [
             Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png"),
             "http://images.cocodataset.org/val2017/000000039769.jpg",
@@ -164,7 +166,7 @@ class ImageClassificationPipelineTests(unittest.TestCase, metaclass=PipelineTest
         )
 
     def test_custom_tokenizer(self):
-        tokenizer = PreTrainedTokenizer()
+        tokenizer = PreTrainedTokenizerBase()
 
         # Assert that the pipeline can be initialized with a feature extractor that is not in any mapping
         image_classifier = pipeline(

@@ -41,7 +41,7 @@ class BeitConfig(PretrainedConfig):
     [microsoft/beit-base-patch16-224-pt22k](https://huggingface.co/microsoft/beit-base-patch16-224-pt22k) architecture.
 
     Args:
-        vocab_size (`int`, *optional*, defaults to 8092):
+        vocab_size (`int`, *optional*, defaults to 8192):
             Vocabulary size of the BEiT model. Defines the number of different image tokens that can be used during
             pre-training.
         hidden_size (`int`, *optional*, defaults to 768):
@@ -147,7 +147,7 @@ class BeitConfig(PretrainedConfig):
         auxiliary_num_convs=1,
         auxiliary_concat_input=False,
         semantic_loss_ignore_index=255,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 
@@ -186,7 +186,6 @@ class BeitConfig(PretrainedConfig):
 
 # Copied from transformers.models.vit.configuration_vit.ViTOnnxConfig
 class BeitOnnxConfig(OnnxConfig):
-
     torch_onnx_minimum_version = version.parse("1.11")
 
     @property

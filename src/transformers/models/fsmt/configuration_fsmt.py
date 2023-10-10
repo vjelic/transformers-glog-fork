@@ -15,8 +15,6 @@
 """ FSMT configuration"""
 
 
-import copy
-
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -171,7 +169,7 @@ class FSMTConfig(PretrainedConfig):
         bos_token_id=0,
         eos_token_id=2,
         forced_eos_token_id=2,
-        **common_kwargs
+        **common_kwargs,
     ):
         self.langs = langs
         self.src_vocab_size = src_vocab_size
@@ -216,15 +214,3 @@ class FSMTConfig(PretrainedConfig):
             early_stopping=early_stopping,
             **common_kwargs,
         )
-
-    def to_dict(self):
-        """
-        Serializes this instance to a Python dictionary. Override the default *to_dict()* from *PretrainedConfig*.
-
-        Returns:
-            `Dict[str, any]`: Dictionary of all the attributes that make up this configuration instance,
-        """
-        output = copy.deepcopy(self.__dict__)
-        output["decoder"] = self.decoder.to_dict()
-        output["model_type"] = self.__class__.model_type
-        return output

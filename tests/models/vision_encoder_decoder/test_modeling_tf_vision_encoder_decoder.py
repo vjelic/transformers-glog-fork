@@ -15,6 +15,8 @@
 """ Testing suite for the TensorFlow VisionEncoderDecoder model. """
 
 
+from __future__ import annotations
+
 import copy
 import os
 import tempfile
@@ -43,7 +45,7 @@ if is_tf_available():
 
     from transformers import (
         AutoConfig,
-        AutoFeatureExtractor,
+        AutoImageProcessor,
         AutoTokenizer,
         TFAutoModel,
         TFAutoModelForCausalLM,
@@ -62,7 +64,7 @@ if is_torch_available():
 if is_vision_available():
     from PIL import Image
 
-    from transformers import ViTFeatureExtractor
+    from transformers import ViTImageProcessor
 
 
 @require_tf
@@ -84,7 +86,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_config,
         decoder_input_ids,
         decoder_attention_mask,
-        **kwargs
+        **kwargs,
     ):
         encoder_decoder_config = VisionEncoderDecoderConfig.from_encoder_decoder_configs(config, decoder_config)
         self.assertTrue(encoder_decoder_config.decoder.is_decoder)
@@ -114,7 +116,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_config,
         decoder_input_ids,
         decoder_attention_mask,
-        **kwargs
+        **kwargs,
     ):
         encoder_model, decoder_model = self.get_encoder_decoder_model(config, decoder_config)
         enc_dec_model = TFVisionEncoderDecoderModel(encoder=encoder_model, decoder=decoder_model)
@@ -158,7 +160,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_input_ids,
         decoder_attention_mask,
         return_dict,
-        **kwargs
+        **kwargs,
     ):
         encoder_model, decoder_model = self.get_encoder_decoder_model(config, decoder_config)
         kwargs = {"encoder_model": encoder_model, "decoder_model": decoder_model, "return_dict": return_dict}
@@ -185,7 +187,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_config,
         decoder_input_ids,
         decoder_attention_mask,
-        **kwargs
+        **kwargs,
     ):
         encoder_model, decoder_model = self.get_encoder_decoder_model(config, decoder_config)
         enc_dec_model = TFVisionEncoderDecoderModel(encoder=encoder_model, decoder=decoder_model)
@@ -223,7 +225,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_input_ids,
         decoder_attention_mask,
         labels,
-        **kwargs
+        **kwargs,
     ):
         encoder_model, decoder_model = self.get_encoder_decoder_model(config, decoder_config)
         enc_dec_model = TFVisionEncoderDecoderModel(encoder=encoder_model, decoder=decoder_model)
@@ -253,7 +255,7 @@ class TFVisionEncoderDecoderMixin:
         decoder_config,
         decoder_input_ids,
         decoder_attention_mask,
-        **kwargs
+        **kwargs,
     ):
         # make the decoder inputs a different shape from the encoder inputs to harden the test
         decoder_input_ids = decoder_input_ids[:, :-1]
@@ -403,7 +405,6 @@ class TFVisionEncoderDecoderMixin:
             )
 
     def prepare_pt_inputs_from_tf_inputs(self, tf_inputs_dict):
-
         pt_inputs_dict = {}
         for name, key in tf_inputs_dict.items():
             if type(key) == bool:
@@ -423,7 +424,6 @@ class TFVisionEncoderDecoderMixin:
         return pt_inputs_dict
 
     def check_pt_tf_models(self, tf_model, pt_model, tf_inputs_dict):
-
         pt_inputs_dict = self.prepare_pt_inputs_from_tf_inputs(tf_inputs_dict)
 
         # send pytorch inputs to the correct device
@@ -463,7 +463,6 @@ class TFVisionEncoderDecoderMixin:
         self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict)
 
     def check_pt_to_tf_equivalence(self, config, decoder_config, tf_inputs_dict):
-
         encoder_decoder_config = VisionEncoderDecoderConfig.from_encoder_decoder_configs(config, decoder_config)
         # Output all for aggressive testing
         encoder_decoder_config.output_hidden_states = True
@@ -479,7 +478,6 @@ class TFVisionEncoderDecoderMixin:
         self.check_pt_tf_equivalence(tf_model, pt_model, tf_inputs_dict)
 
     def check_tf_to_pt_equivalence(self, config, decoder_config, tf_inputs_dict):
-
         encoder_decoder_config = VisionEncoderDecoderConfig.from_encoder_decoder_configs(config, decoder_config)
         # Output all for aggressive testing
         encoder_decoder_config.output_hidden_states = True
@@ -534,7 +532,6 @@ class TFVisionEncoderDecoderMixin:
 
     @is_pt_tf_cross_test
     def test_pt_tf_model_equivalence(self):
-
         config_inputs_dict = self.prepare_config_and_inputs()
         labels = config_inputs_dict.pop("decoder_token_labels")
 
@@ -732,9 +729,9 @@ class TFVisionEncoderDecoderModelSaveLoadTests(unittest.TestCase):
 
         # create two random ViT/GPT2 models for vit-gpt2 & initialize weights (+cross_attention weights)
         encoder = TFViTModel(config.encoder)
-        encoder(encoder.dummy_inputs)
+        encoder.build()
         decoder = TFGPT2LMHeadModel(config.decoder)
-        decoder(decoder.dummy_inputs)
+        decoder.build()
 
         encoder_decoder_orig = TFVisionEncoderDecoderModel(encoder=encoder, decoder=decoder)
 
@@ -831,15 +828,14 @@ class TFVisionEncoderDecoderModelSaveLoadTests(unittest.TestCase):
         load_weight_prefix = TFVisionEncoderDecoderModel.load_weight_prefix
 
         config = self.get_encoder_decoder_config()
-        feature_extractor = AutoFeatureExtractor.from_pretrained("google/vit-base-patch16-224-in21k")
+        image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
         decoder_tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
         img = prepare_img()
-        pixel_values = feature_extractor(images=img, return_tensors="tf").pixel_values
+        pixel_values = image_processor(images=img, return_tensors="tf").pixel_values
         decoder_input_ids = decoder_tokenizer("Linda Davis", return_tensors="tf").input_ids
 
         with tempfile.TemporaryDirectory() as tmp_dirname:
-
             # Since most of HF's models don't have pretrained cross-attention layers, they are randomly
             # initialized even if we create models using `from_pretrained` method.
             # For the tests, the decoder need to be a model with pretrained cross-attention layers.
@@ -895,16 +891,15 @@ class TFVisionEncoderDecoderModelSaveLoadTests(unittest.TestCase):
 class TFViT2GPT2ModelIntegrationTest(unittest.TestCase):
     @slow
     def test_inference_coco_en(self):
-
         loc = "ydshieh/vit-gpt2-coco-en"
 
-        feature_extractor = ViTFeatureExtractor.from_pretrained(loc)
+        image_processor = ViTImageProcessor.from_pretrained(loc)
         tokenizer = AutoTokenizer.from_pretrained(loc)
         model = TFVisionEncoderDecoderModel.from_pretrained(loc)
 
         # We will verify our results on an image of cute cats
         img = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")
-        pixel_values = feature_extractor(images=img, return_tensors="tf").pixel_values
+        pixel_values = image_processor(images=img, return_tensors="tf").pixel_values
 
         decoder_input_ids = tf.constant([[model.config.decoder_start_token_id]])
 
@@ -932,16 +927,14 @@ class TFViT2GPT2ModelIntegrationTest(unittest.TestCase):
         self.assertLessEqual(max_diff, 1e-4)
 
         def generate_step(pixel_values):
-            outputs = model.generate(
-                pixel_values, max_length=16, num_beams=4, return_dict_in_generate=True, output_scores=True
-            )
+            outputs = model.generate(pixel_values, max_length=16, num_beams=4, return_dict_in_generate=True)
             output_ids = outputs.sequences
             preds = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
             preds = [pred.strip() for pred in preds]
 
-            return preds, outputs.scores.numpy()
+            return preds
 
-        preds, scores = generate_step(pixel_values)
+        preds = generate_step(pixel_values)
 
         # should produce
         # ["a cat laying on top of a couch next to another cat"]

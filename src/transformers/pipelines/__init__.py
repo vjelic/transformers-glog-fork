@@ -1,11 +1,3 @@
-# flake8: noqa
-# There's no way to ignore "F401 '...' imported but unused" warnings in this
-# module, but to preserve other warnings. So, don't check this module at all.
-
-import io
-import json
-import os
-
 # coding=utf-8
 # Copyright 2018 The HuggingFace Inc. team.
 #
@@ -20,26 +12,32 @@ import os
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
+import json
+import os
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from numpy import isin
-
 from huggingface_hub import model_info
+from numpy import isin
 
 from ..configuration_utils import PretrainedConfig
 from ..dynamic_module_utils import get_class_from_dynamic_module
 from ..feature_extraction_utils import PreTrainedFeatureExtractor
+from ..image_processing_utils import BaseImageProcessor
 from ..models.auto.configuration_auto import AutoConfig
 from ..models.auto.feature_extraction_auto import FEATURE_EXTRACTOR_MAPPING, AutoFeatureExtractor
-from ..models.auto.modeling_auto import AutoModelForDepthEstimation
+from ..models.auto.image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
+from ..models.auto.modeling_auto import AutoModelForDepthEstimation, AutoModelForImageToImage
 from ..models.auto.tokenization_auto import TOKENIZER_MAPPING, AutoTokenizer
 from ..tokenization_utils import PreTrainedTokenizer
-from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from ..utils import (
     HUGGINGFACE_CO_RESOLVE_ENDPOINT,
+    find_adapter_config_file,
     is_kenlm_available,
+    is_offline_mode,
+    is_peft_available,
     is_pyctcdecode_available,
     is_tf_available,
     is_torch_available,
@@ -66,13 +64,16 @@ from .feature_extraction import FeatureExtractionPipeline
 from .fill_mask import FillMaskPipeline
 from .image_classification import ImageClassificationPipeline
 from .image_segmentation import ImageSegmentationPipeline
+from .image_to_image import ImageToImagePipeline
 from .image_to_text import ImageToTextPipeline
+from .mask_generation import MaskGenerationPipeline
 from .object_detection import ObjectDetectionPipeline
 from .question_answering import QuestionAnsweringArgumentHandler, QuestionAnsweringPipeline
 from .table_question_answering import TableQuestionAnsweringArgumentHandler, TableQuestionAnsweringPipeline
 from .text2text_generation import SummarizationPipeline, Text2TextGenerationPipeline, TranslationPipeline
 from .text_classification import TextClassificationPipeline
 from .text_generation import TextGenerationPipeline
+from .text_to_audio import TextToAudioPipeline
 from .token_classification import (
     AggregationStrategy,
     NerPipeline,
@@ -81,6 +82,7 @@ from .token_classification import (
 )
 from .video_classification import VideoClassificationPipeline
 from .visual_question_answering import VisualQuestionAnsweringPipeline
+from .zero_shot_audio_classification import ZeroShotAudioClassificationPipeline
 from .zero_shot_classification import ZeroShotClassificationArgumentHandler, ZeroShotClassificationPipeline
 from .zero_shot_image_classification import ZeroShotImageClassificationPipeline
 from .zero_shot_object_detection import ZeroShotObjectDetectionPipeline
@@ -90,11 +92,6 @@ if is_tf_available():
     import tensorflow as tf
 
     from ..models.auto.modeling_tf_auto import (
-        TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-        TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-        TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-        TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-        TF_MODEL_WITH_LM_HEAD_MAPPING,
         TFAutoModel,
         TFAutoModelForCausalLM,
         TFAutoModelForImageClassification,
@@ -105,19 +102,13 @@ if is_tf_available():
         TFAutoModelForTableQuestionAnswering,
         TFAutoModelForTokenClassification,
         TFAutoModelForVision2Seq,
+        TFAutoModelForZeroShotImageClassification,
     )
 
 if is_torch_available():
     import torch
 
     from ..models.auto.modeling_auto import (
-        MODEL_FOR_MASKED_LM_MAPPING,
-        MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-        MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-        MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-        MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
-        MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-        MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING,
         AutoModel,
         AutoModelForAudioClassification,
         AutoModelForCausalLM,
@@ -126,6 +117,7 @@ if is_torch_available():
         AutoModelForImageClassification,
         AutoModelForImageSegmentation,
         AutoModelForMaskedLM,
+        AutoModelForMaskGeneration,
         AutoModelForObjectDetection,
         AutoModelForQuestionAnswering,
         AutoModelForSemanticSegmentation,
@@ -133,15 +125,22 @@ if is_torch_available():
         AutoModelForSequenceClassification,
         AutoModelForSpeechSeq2Seq,
         AutoModelForTableQuestionAnswering,
+        AutoModelForTextToSpectrogram,
+        AutoModelForTextToWaveform,
         AutoModelForTokenClassification,
         AutoModelForVideoClassification,
         AutoModelForVision2Seq,
         AutoModelForVisualQuestionAnswering,
+        AutoModelForZeroShotImageClassification,
         AutoModelForZeroShotObjectDetection,
     )
+
+
 if TYPE_CHECKING:
     from ..modeling_tf_utils import TFPreTrainedModel
     from ..modeling_utils import PreTrainedModel
+    from ..tokenization_utils_fast import PreTrainedTokenizerFast
+
 
 logger = logging.get_logger(__name__)
 
@@ -151,6 +150,7 @@ TASK_ALIASES = {
     "sentiment-analysis": "text-classification",
     "ner": "token-classification",
     "vqa": "visual-question-answering",
+    "text-to-speech": "text-to-audio",
 }
 SUPPORTED_TASKS = {
     "audio-classification": {
@@ -166,6 +166,13 @@ SUPPORTED_TASKS = {
         "pt": (AutoModelForCTC, AutoModelForSpeechSeq2Seq) if is_torch_available() else (),
         "default": {"model": {"pt": ("facebook/wav2vec2-base-960h", "55bb623")}},
         "type": "multimodal",
+    },
+    "text-to-audio": {
+        "impl": TextToAudioPipeline,
+        "tf": (),
+        "pt": (AutoModelForTextToWaveform, AutoModelForTextToSpectrogram) if is_torch_available() else (),
+        "default": {"model": {"pt": ("suno/bark-small", "645cfba")}},
+        "type": "text",
     },
     "feature-extraction": {
         "impl": FeatureExtractionPipeline,
@@ -292,12 +299,23 @@ SUPPORTED_TASKS = {
     },
     "zero-shot-image-classification": {
         "impl": ZeroShotImageClassificationPipeline,
-        "tf": (TFAutoModel,) if is_tf_available() else (),
-        "pt": (AutoModel,) if is_torch_available() else (),
+        "tf": (TFAutoModelForZeroShotImageClassification,) if is_tf_available() else (),
+        "pt": (AutoModelForZeroShotImageClassification,) if is_torch_available() else (),
         "default": {
             "model": {
                 "pt": ("openai/clip-vit-base-patch32", "f4881ba"),
                 "tf": ("openai/clip-vit-base-patch32", "f4881ba"),
+            }
+        },
+        "type": "multimodal",
+    },
+    "zero-shot-audio-classification": {
+        "impl": ZeroShotAudioClassificationPipeline,
+        "tf": (),
+        "pt": (AutoModel,) if is_torch_available() else (),
+        "default": {
+            "model": {
+                "pt": ("laion/clap-htsat-fused", "973b6e5"),
             }
         },
         "type": "multimodal",
@@ -328,7 +346,7 @@ SUPPORTED_TASKS = {
         "tf": (),
         "pt": (AutoModelForImageSegmentation, AutoModelForSemanticSegmentation) if is_torch_available() else (),
         "default": {"model": {"pt": ("facebook/detr-resnet-50-panoptic", "fc15262")}},
-        "type": "image",
+        "type": "multimodal",
     },
     "image-to-text": {
         "impl": ImageToTextPipeline,
@@ -370,10 +388,26 @@ SUPPORTED_TASKS = {
         "default": {"model": {"pt": ("MCG-NJU/videomae-base-finetuned-kinetics", "4800870")}},
         "type": "video",
     },
+    "mask-generation": {
+        "impl": MaskGenerationPipeline,
+        "tf": (),
+        "pt": (AutoModelForMaskGeneration,) if is_torch_available() else (),
+        "default": {"model": {"pt": ("facebook/sam-vit-huge", "997b15")}},
+        "type": "multimodal",
+    },
+    "image-to-image": {
+        "impl": ImageToImagePipeline,
+        "tf": (),
+        "pt": (AutoModelForImageToImage,) if is_torch_available() else (),
+        "default": {"model": {"pt": ("caidas/swin2SR-classical-sr-x2-64", "4aaedcb")}},
+        "type": "image",
+    },
 }
 
 NO_FEATURE_EXTRACTOR_TASKS = set()
+NO_IMAGE_PROCESSOR_TASKS = set()
 NO_TOKENIZER_TASKS = set()
+
 # Those model configs are special, they are generic over their task, meaning
 # any tokenizer/feature_extractor might be use for a given model so we cannot
 # use the statically defined TOKENIZER_MAPPING and FEATURE_EXTRACTOR_MAPPING to
@@ -382,8 +416,12 @@ MULTI_MODEL_CONFIGS = {"SpeechEncoderDecoderConfig", "VisionEncoderDecoderConfig
 for task, values in SUPPORTED_TASKS.items():
     if values["type"] == "text":
         NO_FEATURE_EXTRACTOR_TASKS.add(task)
-    elif values["type"] in {"audio", "image", "video"}:
+        NO_IMAGE_PROCESSOR_TASKS.add(task)
+    elif values["type"] in {"image", "video"}:
         NO_TOKENIZER_TASKS.add(task)
+    elif values["type"] in {"audio"}:
+        NO_TOKENIZER_TASKS.add(task)
+        NO_IMAGE_PROCESSOR_TASKS.add(task)
     elif values["type"] != "multimodal":
         raise ValueError(f"SUPPORTED_TASK {task} contains invalid type {values['type']}")
 
@@ -397,9 +435,20 @@ def get_supported_tasks() -> List[str]:
     return PIPELINE_REGISTRY.get_supported_tasks()
 
 
-def get_task(model: str, use_auth_token: Optional[str] = None) -> str:
+def get_task(model: str, token: Optional[str] = None, **deprecated_kwargs) -> str:
+    use_auth_token = deprecated_kwargs.pop("use_auth_token", None)
+    if use_auth_token is not None:
+        warnings.warn(
+            "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers.", FutureWarning
+        )
+        if token is not None:
+            raise ValueError("`token` and `use_auth_token` are both specified. Please set only the argument `token`.")
+        token = use_auth_token
+
+    if is_offline_mode():
+        raise RuntimeError("You cannot infer task automatically within `pipeline` when using offline mode")
     try:
-        info = model_info(model, token=use_auth_token)
+        info = model_info(model, token=token)
     except Exception as e:
         raise RuntimeError(f"Instantiating a pipeline without a task set raised an error: {e}")
     if not info.pipeline_tag:
@@ -424,20 +473,30 @@ def check_task(task: str) -> Tuple[str, Dict, Any]:
             - `"audio-classification"`
             - `"automatic-speech-recognition"`
             - `"conversational"`
+            - `"depth-estimation"`
+            - `"document-question-answering"`
             - `"feature-extraction"`
             - `"fill-mask"`
             - `"image-classification"`
+            - `"image-segmentation"`
+            - `"image-to-text"`
+            - `"image-to-image"`
+            - `"object-detection"`
             - `"question-answering"`
+            - `"summarization"`
             - `"table-question-answering"`
             - `"text2text-generation"`
             - `"text-classification"` (alias `"sentiment-analysis"` available)
             - `"text-generation"`
+            - `"text-to-audio"` (alias `"text-to-speech"` available)
             - `"token-classification"` (alias `"ner"` available)
             - `"translation"`
             - `"translation_xx_to_yy"`
-            - `"summarization"`
+            - `"video-classification"`
+            - `"visual-question-answering"`
             - `"zero-shot-classification"`
             - `"zero-shot-image-classification"`
+            - `"zero-shot-object-detection"`
 
     Returns:
         (normalized_task: `str`, task_defaults: `dict`, task_options: (`tuple`, None)) The normalized task name
@@ -467,14 +526,15 @@ def clean_custom_task(task_info):
 
 def pipeline(
     task: str = None,
-    model: Optional = None,
+    model: Optional[Union[str, "PreTrainedModel", "TFPreTrainedModel"]] = None,
     config: Optional[Union[str, PretrainedConfig]] = None,
-    tokenizer: Optional[Union[str, PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+    tokenizer: Optional[Union[str, PreTrainedTokenizer, "PreTrainedTokenizerFast"]] = None,
     feature_extractor: Optional[Union[str, PreTrainedFeatureExtractor]] = None,
+    image_processor: Optional[Union[str, BaseImageProcessor]] = None,
     framework: Optional[str] = None,
     revision: Optional[str] = None,
     use_fast: bool = True,
-    use_auth_token: Optional[Union[str, bool]] = None,
+    token: Optional[Union[str, bool]] = None,
     device: Optional[Union[int, str, "torch.device"]] = None,
     device_map=None,
     torch_dtype=None,
@@ -499,20 +559,33 @@ def pipeline(
             - `"audio-classification"`: will return a [`AudioClassificationPipeline`].
             - `"automatic-speech-recognition"`: will return a [`AutomaticSpeechRecognitionPipeline`].
             - `"conversational"`: will return a [`ConversationalPipeline`].
+            - `"depth-estimation"`: will return a [`DepthEstimationPipeline`].
+            - `"document-question-answering"`: will return a [`DocumentQuestionAnsweringPipeline`].
             - `"feature-extraction"`: will return a [`FeatureExtractionPipeline`].
             - `"fill-mask"`: will return a [`FillMaskPipeline`]:.
             - `"image-classification"`: will return a [`ImageClassificationPipeline`].
+            - `"image-segmentation"`: will return a [`ImageSegmentationPipeline`].
+            - `"image-to-image"`: will return a [`ImageToImagePipeline`].
+            - `"image-to-text"`: will return a [`ImageToTextPipeline`].
+            - `"mask-generation"`: will return a [`MaskGenerationPipeline`].
+            - `"object-detection"`: will return a [`ObjectDetectionPipeline`].
             - `"question-answering"`: will return a [`QuestionAnsweringPipeline`].
+            - `"summarization"`: will return a [`SummarizationPipeline`].
             - `"table-question-answering"`: will return a [`TableQuestionAnsweringPipeline`].
             - `"text2text-generation"`: will return a [`Text2TextGenerationPipeline`].
             - `"text-classification"` (alias `"sentiment-analysis"` available): will return a
               [`TextClassificationPipeline`].
             - `"text-generation"`: will return a [`TextGenerationPipeline`]:.
+            - `"text-to-audio"` (alias `"text-to-speech"` available): will return a [`TextToAudioPipeline`]:.
             - `"token-classification"` (alias `"ner"` available): will return a [`TokenClassificationPipeline`].
             - `"translation"`: will return a [`TranslationPipeline`].
             - `"translation_xx_to_yy"`: will return a [`TranslationPipeline`].
-            - `"summarization"`: will return a [`SummarizationPipeline`].
+            - `"video-classification"`: will return a [`VideoClassificationPipeline`].
+            - `"visual-question-answering"`: will return a [`VisualQuestionAnsweringPipeline`].
             - `"zero-shot-classification"`: will return a [`ZeroShotClassificationPipeline`].
+            - `"zero-shot-image-classification"`: will return a [`ZeroShotImageClassificationPipeline`].
+            - `"zero-shot-audio-classification"`: will return a [`ZeroShotAudioClassificationPipeline`].
+            - `"zero-shot-object-detection"`: will return a [`ZeroShotObjectDetectionPipeline`].
 
         model (`str` or [`PreTrainedModel`] or [`TFPreTrainedModel`], *optional*):
             The model that will be used by the pipeline to make predictions. This can be a model identifier or an
@@ -584,10 +657,10 @@ def pipeline(
             Whether or not to allow for custom code defined on the Hub in their own modeling, configuration,
             tokenization or even pipeline files. This option should only be set to `True` for repositories you trust
             and in which you have read the code, as it will execute code present on the Hub on your local machine.
-        model_kwargs:
+        model_kwargs (`Dict[str, Any]`, *optional*):
             Additional dictionary of keyword arguments passed along to the model's `from_pretrained(...,
             **model_kwargs)` function.
-        kwargs:
+        kwargs (`Dict[str, Any]`, *optional*):
             Additional keyword arguments passed along to the specific pipeline init (see the documentation for the
             corresponding pipeline class for possible values).
 
@@ -616,10 +689,18 @@ def pipeline(
         model_kwargs = {}
     # Make sure we only pass use_auth_token once as a kwarg (it used to be possible to pass it in model_kwargs,
     # this is to keep BC).
-    use_auth_token = model_kwargs.pop("use_auth_token", use_auth_token)
+    use_auth_token = model_kwargs.pop("use_auth_token", None)
+    if use_auth_token is not None:
+        warnings.warn(
+            "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers.", FutureWarning
+        )
+        if token is not None:
+            raise ValueError("`token` and `use_auth_token` are both specified. Please set only the argument `token`.")
+        token = use_auth_token
+
     hub_kwargs = {
         "revision": revision,
-        "use_auth_token": use_auth_token,
+        "token": token,
         "trust_remote_code": trust_remote_code,
         "_commit_hash": None,
     }
@@ -652,6 +733,21 @@ def pipeline(
         config = AutoConfig.from_pretrained(config, _from_pipeline=task, **hub_kwargs, **model_kwargs)
         hub_kwargs["_commit_hash"] = config._commit_hash
     elif config is None and isinstance(model, str):
+        # Check for an adapter file in the model path if PEFT is available
+        if is_peft_available():
+            subfolder = hub_kwargs.get("subfolder", None)
+            maybe_adapter_path = find_adapter_config_file(
+                model,
+                revision=revision,
+                token=use_auth_token,
+                subfolder=subfolder,
+            )
+
+            if maybe_adapter_path is not None:
+                with open(maybe_adapter_path, "r", encoding="utf-8") as f:
+                    adapter_config = json.load(f)
+                    model = adapter_config["base_model_name_or_path"]
+
         config = AutoConfig.from_pretrained(model, _from_pipeline=task, **hub_kwargs, **model_kwargs)
         hub_kwargs["_commit_hash"] = config._commit_hash
 
@@ -687,9 +783,8 @@ def pipeline(
                     " set the option `trust_remote_code=True` to remove this error."
                 )
             class_ref = targeted_task["impl"]
-            module_file, class_name = class_ref.split(".")
             pipeline_class = get_class_from_dynamic_module(
-                model, module_file + ".py", class_name, revision=revision, use_auth_token=use_auth_token
+                class_ref, model, revision=revision, use_auth_token=use_auth_token
             )
     else:
         normalized_task, targeted_task, task_options = check_task(task)
@@ -716,6 +811,11 @@ def pipeline(
                 'You cannot use both `pipeline(... device_map=..., model_kwargs={"device_map":...})` as those'
                 " arguments might conflict, use only one.)"
             )
+        if device is not None:
+            logger.warning(
+                "Both `device` and `device_map` are specified. `device` will override `device_map`. You"
+                " will most likely encounter unexpected behavior. Please remove `device` and keep `device_map`."
+            )
         model_kwargs["device_map"] = device_map
     if torch_dtype is not None:
         if "torch_dtype" in model_kwargs:
@@ -727,25 +827,33 @@ def pipeline(
 
     model_name = model if isinstance(model, str) else None
 
-    # Infer the framework from the model
-    # Forced if framework already defined, inferred if it's None
-    # Will load the correct model if possible
-    model_classes = {"tf": targeted_task["tf"], "pt": targeted_task["pt"]}
-    framework, model = infer_framework_load_model(
-        model,
-        model_classes=model_classes,
-        config=config,
-        framework=framework,
-        task=task,
-        **hub_kwargs,
-        **model_kwargs,
-    )
+    # Load the correct model if possible
+    # Infer the framework from the model if not already defined
+    if isinstance(model, str) or framework is None:
+        model_classes = {"tf": targeted_task["tf"], "pt": targeted_task["pt"]}
+        framework, model = infer_framework_load_model(
+            model,
+            model_classes=model_classes,
+            config=config,
+            framework=framework,
+            task=task,
+            **hub_kwargs,
+            **model_kwargs,
+        )
 
     model_config = model.config
     hub_kwargs["_commit_hash"] = model.config._commit_hash
-
     load_tokenizer = type(model_config) in TOKENIZER_MAPPING or model_config.tokenizer_class is not None
     load_feature_extractor = type(model_config) in FEATURE_EXTRACTOR_MAPPING or feature_extractor is not None
+    load_image_processor = type(model_config) in IMAGE_PROCESSOR_MAPPING or image_processor is not None
+
+    # If `model` (instance of `PretrainedModel` instead of `str`) is passed (and/or same for config), while
+    # `image_processor` or `feature_extractor` is `None`, the loading will fail. This happens particularly for some
+    # vision tasks when calling `pipeline()` with `model` and only one of the `image_processor` and `feature_extractor`.
+    # TODO: we need to make `NO_IMAGE_PROCESSOR_TASKS` and `NO_FEATURE_EXTRACTOR_TASKS` more robust to avoid such issue.
+    # This block is only temporarily to make CI green.
+    if load_image_processor and load_feature_extractor:
+        load_feature_extractor = False
 
     if (
         tokenizer is None
@@ -758,6 +866,18 @@ def pipeline(
         # so the model_config might not define a tokenizer, but it seems to be
         # necessary for the task, so we're force-trying to load it.
         load_tokenizer = True
+    if (
+        image_processor is None
+        and not load_image_processor
+        and normalized_task not in NO_IMAGE_PROCESSOR_TASKS
+        # Using class name to avoid importing the real class.
+        and model_config.__class__.__name__ in MULTI_MODEL_CONFIGS
+        and normalized_task != "automatic-speech-recognition"
+    ):
+        # This is a special category of models, that are fusions of multiple models
+        # so the model_config might not define a tokenizer, but it seems to be
+        # necessary for the task, so we're force-trying to load it.
+        load_image_processor = True
     if (
         feature_extractor is None
         and not load_feature_extractor
@@ -779,6 +899,8 @@ def pipeline(
 
     if task in NO_FEATURE_EXTRACTOR_TASKS:
         load_feature_extractor = False
+    if task in NO_IMAGE_PROCESSOR_TASKS:
+        load_image_processor = False
 
     if load_tokenizer:
         # Try to infer tokenizer from model or config name (if provided as str)
@@ -803,10 +925,36 @@ def pipeline(
                 tokenizer_kwargs = tokenizer[1]
             else:
                 tokenizer_identifier = tokenizer
-                tokenizer_kwargs = model_kwargs
+                tokenizer_kwargs = model_kwargs.copy()
+                tokenizer_kwargs.pop("torch_dtype", None)
 
             tokenizer = AutoTokenizer.from_pretrained(
                 tokenizer_identifier, use_fast=use_fast, _from_pipeline=task, **hub_kwargs, **tokenizer_kwargs
+            )
+
+    if load_image_processor:
+        # Try to infer image processor from model or config name (if provided as str)
+        if image_processor is None:
+            if isinstance(model_name, str):
+                image_processor = model_name
+            elif isinstance(config, str):
+                image_processor = config
+            # Backward compatibility, as `feature_extractor` used to be the name
+            # for `ImageProcessor`.
+            elif feature_extractor is not None and isinstance(feature_extractor, BaseImageProcessor):
+                image_processor = feature_extractor
+            else:
+                # Impossible to guess what is the right image_processor here
+                raise Exception(
+                    "Impossible to guess which image processor to use. "
+                    "Please provide a PreTrainedImageProcessor class or a path/identifier "
+                    "to a pretrained image processor."
+                )
+
+        # Instantiate image_processor if needed
+        if isinstance(image_processor, (str, tuple)):
+            image_processor = AutoImageProcessor.from_pretrained(
+                image_processor, _from_pipeline=task, **hub_kwargs, **model_kwargs
             )
 
     if load_feature_extractor:
@@ -846,8 +994,8 @@ def pipeline(
                             BeamSearchDecoderCTC._LANGUAGE_MODEL_SERIALIZED_DIRECTORY, "*"
                         )
                         alphabet_filename = BeamSearchDecoderCTC._ALPHABET_SERIALIZED_FILENAME
-                        allow_regex = [language_model_glob, alphabet_filename]
-                        decoder = BeamSearchDecoderCTC.load_from_hf_hub(model_name, allow_regex=allow_regex)
+                        allow_patterns = [language_model_glob, alphabet_filename]
+                        decoder = BeamSearchDecoderCTC.load_from_hf_hub(model_name, allow_patterns=allow_patterns)
 
                     kwargs["decoder"] = decoder
                 except ImportError as e:
@@ -876,6 +1024,9 @@ def pipeline(
 
     if torch_dtype is not None:
         kwargs["torch_dtype"] = torch_dtype
+
+    if image_processor is not None:
+        kwargs["image_processor"] = image_processor
 
     if device is not None:
         kwargs["device"] = device
