@@ -893,12 +893,13 @@ def extract_hyperparameters_from_trainer(trainer):
         hyperparameters["training_steps"] = trainer.args.max_steps
     else:
         hyperparameters["num_epochs"] = trainer.args.num_train_epochs
-
-    if trainer.args.fp16:
-        if trainer.use_cuda_amp:
-            hyperparameters["mixed_precision_training"] = "Native AMP"
-        elif trainer.use_apex:
-            hyperparameters["mixed_precision_training"] = f"Apex, opt level {trainer.args.fp16_opt_level}"
+    
+    # Note: "use_cuda_amp" was removed in https://github.com/huggingface/transformers/pull/25702#discussion_r1318935474 and is causing issues in upstream. TODO: Re-enable when solution is found. 
+   # if trainer.args.fp16:
+   #     if trainer.use_cuda_amp:
+   #         hyperparameters["mixed_precision_training"] = "Native AMP"
+   #     elif trainer.use_apex:
+   #         hyperparameters["mixed_precision_training"] = f"Apex, opt level {trainer.args.fp16_opt_level}"
 
     if trainer.args.label_smoothing_factor != 0.0:
         hyperparameters["label_smoothing_factor"] = trainer.args.label_smoothing_factor
