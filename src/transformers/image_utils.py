@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import os
-from typing import TYPE_CHECKING, Dict, Iterable, List, Tuple, Union
+from io import BytesIO
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-from packaging import version
-
 import requests
+from packaging import version
 
 from .utils import (
     ExplicitEnum,
@@ -36,6 +37,8 @@ from .utils.constants import (  # noqa: F401
     IMAGENET_DEFAULT_STD,
     IMAGENET_STANDARD_MEAN,
     IMAGENET_STANDARD_STD,
+    OPENAI_CLIP_MEAN,
+    OPENAI_CLIP_STD,
 )
 
 
@@ -61,6 +64,10 @@ ImageInput = Union[
 class ChannelDimension(ExplicitEnum):
     FIRST = "channels_first"
     LAST = "channels_last"
+
+
+def is_pil_image(img):
+    return is_vision_available() and isinstance(img, PIL.Image.Image)
 
 
 def is_valid_image(img):
@@ -91,6 +98,56 @@ def is_batched(img):
     return False
 
 
+def is_scaled_image(image: np.ndarray) -> bool:
+    """
+    Checks to see whether the pixel values have already been rescaled to [0, 1].
+    """
+    if image.dtype == np.uint8:
+        return False
+
+    # It's possible the image has pixel values in [0, 255] but is of floating type
+    return np.min(image) >= 0 and np.max(image) <= 1
+
+
+def make_list_of_images(images, expected_ndims: int = 3) -> List[ImageInput]:
+    """
+    Ensure that the input is a list of images. If the input is a single image, it is converted to a list of length 1.
+    If the input is a batch of images, it is converted to a list of images.
+
+    Args:
+        images (`ImageInput`):
+            Image of images to turn into a list of images.
+        expected_ndims (`int`, *optional*, defaults to 3):
+            Expected number of dimensions for a single input image. If the input image has a different number of
+            dimensions, an error is raised.
+    """
+    if is_batched(images):
+        return images
+
+    # Either the input is a single image, in which case we create a list of length 1
+    if isinstance(images, PIL.Image.Image):
+        # PIL images are never batched
+        return [images]
+
+    if is_valid_image(images):
+        if images.ndim == expected_ndims + 1:
+            # Batch of images
+            images = list(images)
+        elif images.ndim == expected_ndims:
+            # Single image
+            images = [images]
+        else:
+            raise ValueError(
+                f"Invalid image shape. Expected either {expected_ndims + 1} or {expected_ndims} dimensions, but got"
+                f" {images.ndim} dimensions."
+            )
+        return images
+    raise ValueError(
+        "Invalid image type. Expected either PIL.Image.Image, numpy.ndarray, torch.Tensor, tf.Tensor or "
+        f"jax.ndarray, but got {type(images)}."
+    )
+
+
 def to_numpy_array(img) -> np.ndarray:
     if not is_valid_image(img):
         raise ValueError(f"Invalid image type: {type(img)}")
@@ -100,17 +157,24 @@ def to_numpy_array(img) -> np.ndarray:
     return to_numpy(img)
 
 
-def infer_channel_dimension_format(image: np.ndarray) -> ChannelDimension:
+def infer_channel_dimension_format(
+    image: np.ndarray, num_channels: Optional[Union[int, Tuple[int, ...]]] = None
+) -> ChannelDimension:
     """
     Infers the channel dimension format of `image`.
 
     Args:
         image (`np.ndarray`):
             The image to infer the channel dimension of.
+        num_channels (`int` or `Tuple[int, ...]`, *optional*, defaults to `(1, 3)`):
+            The number of channels of the image.
 
     Returns:
         The channel dimension of the image.
     """
+    num_channels = num_channels if num_channels is not None else (1, 3)
+    num_channels = (num_channels,) if isinstance(num_channels, int) else num_channels
+
     if image.ndim == 3:
         first_dim, last_dim = 0, 2
     elif image.ndim == 4:
@@ -118,30 +182,35 @@ def infer_channel_dimension_format(image: np.ndarray) -> ChannelDimension:
     else:
         raise ValueError(f"Unsupported number of image dimensions: {image.ndim}")
 
-    if image.shape[first_dim] in (1, 3):
+    if image.shape[first_dim] in num_channels:
         return ChannelDimension.FIRST
-    elif image.shape[last_dim] in (1, 3):
+    elif image.shape[last_dim] in num_channels:
         return ChannelDimension.LAST
     raise ValueError("Unable to infer channel dimension format")
 
 
-def get_channel_dimension_axis(image: np.ndarray) -> int:
+def get_channel_dimension_axis(
+    image: np.ndarray, input_data_format: Optional[Union[ChannelDimension, str]] = None
+) -> int:
     """
     Returns the channel dimension axis of the image.
 
     Args:
         image (`np.ndarray`):
             The image to get the channel dimension axis of.
+        input_data_format (`ChannelDimension` or `str`, *optional*):
+            The channel dimension format of the image. If `None`, will infer the channel dimension from the image.
 
     Returns:
         The channel dimension axis of the image.
     """
-    channel_dim = infer_channel_dimension_format(image)
-    if channel_dim == ChannelDimension.FIRST:
+    if input_data_format is None:
+        input_data_format = infer_channel_dimension_format(image)
+    if input_data_format == ChannelDimension.FIRST:
         return image.ndim - 3
-    elif channel_dim == ChannelDimension.LAST:
+    elif input_data_format == ChannelDimension.LAST:
         return image.ndim - 1
-    raise ValueError(f"Unsupported data format: {channel_dim}")
+    raise ValueError(f"Unsupported data format: {input_data_format}")
 
 
 def get_image_size(image: np.ndarray, channel_dim: ChannelDimension = None) -> Tuple[int, int]:
@@ -209,13 +278,15 @@ def valid_coco_panoptic_annotations(annotations: Iterable[Dict[str, Union[List, 
     return all(is_valid_annotation_coco_panoptic(ann) for ann in annotations)
 
 
-def load_image(image: Union[str, "PIL.Image.Image"]) -> "PIL.Image.Image":
+def load_image(image: Union[str, "PIL.Image.Image"], timeout: Optional[float] = None) -> "PIL.Image.Image":
     """
     Loads `image` to a PIL Image.
 
     Args:
         image (`str` or `PIL.Image.Image`):
             The image to convert to the PIL Image format.
+        timeout (`float`, *optional*):
+            The timeout value in seconds for the URL request.
 
     Returns:
         `PIL.Image.Image`: A PIL Image.
@@ -225,18 +296,26 @@ def load_image(image: Union[str, "PIL.Image.Image"]) -> "PIL.Image.Image":
         if image.startswith("http://") or image.startswith("https://"):
             # We need to actually check for a real protocol, otherwise it's impossible to use a local file
             # like http_huggingface_co.png
-            image = PIL.Image.open(requests.get(image, stream=True).raw)
+            image = PIL.Image.open(requests.get(image, stream=True, timeout=timeout).raw)
         elif os.path.isfile(image):
             image = PIL.Image.open(image)
         else:
-            raise ValueError(
-                f"Incorrect path or url, URLs must start with `http://` or `https://`, and {image} is not a valid path"
-            )
+            if image.startswith("data:image/"):
+                image = image.split(",")[1]
+
+            # Try to load as base64
+            try:
+                b64 = base64.b64decode(image, validate=True)
+                image = PIL.Image.open(BytesIO(b64))
+            except Exception as e:
+                raise ValueError(
+                    f"Incorrect image source. Must be a valid URL starting with `http://` or `https://`, a valid path to an image file, or a base64 encoded string. Got {image}. Failed with {e}"
+                )
     elif isinstance(image, PIL.Image.Image):
         image = image
     else:
         raise ValueError(
-            "Incorrect format used for image. Should be an url linking to an image, a local path, or a PIL image."
+            "Incorrect format used for image. Should be an url linking to an image, a base64 string, a local path, or a PIL image."
         )
     image = PIL.ImageOps.exif_transpose(image)
     image = image.convert("RGB")

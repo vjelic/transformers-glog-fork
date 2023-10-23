@@ -33,6 +33,7 @@ if is_torch_available():
     import torch
 
 
+# Copied from tests.models.whisper.test_feature_extraction_whisper.floats_list
 def floats_list(shape, scale=1.0, rng=None, name=None):
     """Creates a random float32 tensor"""
     if rng is None:
@@ -102,7 +103,6 @@ class ASTFeatureExtractionTester(unittest.TestCase):
 @require_torch
 @require_torchaudio
 class ASTFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.TestCase):
-
     feature_extraction_class = ASTFeatureExtractor
 
     def setUp(self):
@@ -123,6 +123,14 @@ class ASTFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Test
         # Test batched
         encoded_sequences_1 = feat_extract(speech_inputs, padding=True, return_tensors="np").input_values
         encoded_sequences_2 = feat_extract(np_speech_inputs, padding=True, return_tensors="np").input_values
+        for enc_seq_1, enc_seq_2 in zip(encoded_sequences_1, encoded_sequences_2):
+            self.assertTrue(np.allclose(enc_seq_1, enc_seq_2, atol=1e-3))
+
+        # Test 2-D numpy arrays are batched.
+        speech_inputs = [floats_list((1, x))[0] for x in (800, 800, 800)]
+        np_speech_inputs = np.asarray(speech_inputs)
+        encoded_sequences_1 = feat_extract(speech_inputs, return_tensors="np").input_values
+        encoded_sequences_2 = feat_extract(np_speech_inputs, return_tensors="np").input_values
         for enc_seq_1, enc_seq_2 in zip(encoded_sequences_1, encoded_sequences_2):
             self.assertTrue(np.allclose(enc_seq_1, enc_seq_2, atol=1e-3))
 
@@ -161,6 +169,7 @@ class ASTFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Test
         # fmt: on
 
         input_speech = self._load_datasamples(1)
-        feaure_extractor = ASTFeatureExtractor()
-        input_values = feaure_extractor(input_speech, return_tensors="pt").input_values
+        feature_extractor = ASTFeatureExtractor()
+        input_values = feature_extractor(input_speech, return_tensors="pt").input_values
+        self.assertEquals(input_values.shape, (1, 1024, 128))
         self.assertTrue(torch.allclose(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, atol=1e-4))

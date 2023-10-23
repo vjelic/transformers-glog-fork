@@ -68,13 +68,11 @@ class Swinv2Config(PretrainedConfig):
             `"selu"` and `"gelu_new"` are supported.
         use_absolute_embeddings (`bool`, *optional*, defaults to `False`):
             Whether or not to add absolute position embeddings to the patch embeddings.
-        patch_norm (`bool`, *optional*, defaults to `True`):
-            Whether or not to add layer normalization after patch embedding.
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
-        layer_norm_eps (`float`, *optional*, defaults to 1e-12):
+        layer_norm_eps (`float`, *optional*, defaults to 1e-05):
             The epsilon used by the layer normalization layers.
-        encoder_stride (`int`, `optional`, defaults to 32):
+        encoder_stride (`int`, *optional*, defaults to 32):
             Factor to increase the spatial resolution by in the decoder head for masked image modeling.
 
     Example:
@@ -114,11 +112,10 @@ class Swinv2Config(PretrainedConfig):
         drop_path_rate=0.1,
         hidden_act="gelu",
         use_absolute_embeddings=False,
-        patch_norm=True,
         initializer_range=0.02,
         layer_norm_eps=1e-5,
         encoder_stride=32,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 
@@ -137,7 +134,6 @@ class Swinv2Config(PretrainedConfig):
         self.drop_path_rate = drop_path_rate
         self.hidden_act = hidden_act
         self.use_absolute_embeddings = use_absolute_embeddings
-        self.path_norm = patch_norm
         self.layer_norm_eps = layer_norm_eps
         self.initializer_range = initializer_range
         self.encoder_stride = encoder_stride

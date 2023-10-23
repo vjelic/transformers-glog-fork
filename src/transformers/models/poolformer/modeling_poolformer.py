@@ -34,7 +34,6 @@ logger = logging.get_logger(__name__)
 
 # General docstring
 _CONFIG_FOR_DOC = "PoolFormerConfig"
-_FEAT_EXTRACTOR_FOR_DOC = "PoolFormerImageProcessor"
 
 # Base docstring
 _CHECKPOINT_FOR_DOC = "sail/poolformer_s12"
@@ -51,7 +50,7 @@ POOLFORMER_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 
 # Copied from transformers.models.beit.modeling_beit.drop_path
-def drop_path(input, drop_prob: float = 0.0, training: bool = False):
+def drop_path(input: torch.Tensor, drop_prob: float = 0.0, training: bool = False) -> torch.Tensor:
     """
     Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
 
@@ -302,7 +301,7 @@ POOLFORMER_START_DOCSTRING = r"""
 POOLFORMER_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
-            Pixel values. Pixel values can be obtained using [`PoolFormerImageProcessor`]. See
+            Pixel values. Pixel values can be obtained using [`AutoImageProcessor`]. See
             [`PoolFormerImageProcessor.__call__`] for details.
 """
 
@@ -326,7 +325,6 @@ class PoolFormerModel(PoolFormerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(POOLFORMER_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_FEAT_EXTRACTOR_FOR_DOC,
         checkpoint=_CHECKPOINT_FOR_DOC,
         output_type=BaseModelOutputWithNoAttention,
         config_class=_CONFIG_FOR_DOC,
@@ -397,7 +395,6 @@ class PoolFormerForImageClassification(PoolFormerPreTrainedModel):
 
     @add_start_docstrings_to_model_forward(POOLFORMER_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(
-        processor_class=_FEAT_EXTRACTOR_FOR_DOC,
         checkpoint=_IMAGE_CLASS_CHECKPOINT,
         output_type=ImageClassifierOutputWithNoAttention,
         config_class=_CONFIG_FOR_DOC,
