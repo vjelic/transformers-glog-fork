@@ -284,5 +284,3 @@ jobs:
           echo "updated branch = $(git branch --show-current)"
           git checkout ${{ env.CI_SHA }}
           echo "log = $(git log -n 1)"
-
-      - uses: actions/download-artifact@v3
