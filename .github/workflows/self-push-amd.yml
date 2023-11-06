@@ -19,7 +19,7 @@ env:
 jobs:
   check_runner_status:
     name: Check Runner Status
-    runs-on: ubuntu-latest
+    runs-on: rocm
     steps:
       - name: Checkout transformers
         uses: actions/checkout@v3
