@@ -231,19 +231,15 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [
-#        check_runner_status,
         check_runners,
         setup_gpu,
-        run_tests_amdgpu,
-#        run_tests_torch_cuda_extensions_single_gpu,
-#        run_tests_torch_cuda_extensions_multi_gpu
+        run_tests_amdgpu
     ]
     steps:
       - name: Preliminary job status
         shell: bash
         # For the meaning of these environment variables, see the job `Setup`
         run: |
- #         echo "Runner availability: ${{ needs.check_runner_status.result }}"
           echo "Setup status: ${{ needs.setup_gpu.result }}"
           echo "Runner status: ${{ needs.check_runners.result }}"
 
