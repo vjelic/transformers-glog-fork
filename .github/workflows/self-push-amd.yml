@@ -19,7 +19,6 @@ env:
 jobs:
   check_runners:
     name: Check Runners
-    needs: check_runner_status
     strategy:
       matrix:
         machine_type: [single-gpu, multi-gpu]
