@@ -16,7 +16,6 @@ on:
       - "utils/**"
 
 jobs:
-  runs-on: rocm
   run_amd_ci:
     name: AMD mi250
     if: (cancelled() != true) && ((github.event_name != 'schedule') || ((github.event_name == 'push') && startsWith(github.ref_name, 'run_amd_push_ci_caller')))
