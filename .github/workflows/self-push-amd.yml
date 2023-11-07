@@ -152,6 +152,13 @@ jobs:
       image: huggingface/transformers-pytorch-amd-gpu-push-ci  # <--- We test only for PyTorch for now
       options: --device /dev/kfd --device /dev/dri --env HIP_VISIBLE_DEVICES --env ROCR_VISIBLE_DEVICES --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
     steps:
+      - name: Use internal transformers repository 
+        shell: bash
+        run:  |
+          cd / 
+          rm -r transformers
+          git clone https://github.com/ROCmSoftwarePlatform/transformers.git
+          cd -
       # Necessary to get the correct branch name and commit SHA for `workflow_run` event
       # We also take into account the `push` event (we might want to test some changes in a branch)
       - name: Prepare custom environment variables
