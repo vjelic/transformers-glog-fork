@@ -141,12 +141,12 @@ jobs:
     name: Model tests
     needs: setup_gpu
     # `dummy` means there is no test to run
-    if: contains(fromJson(needs.setup_gpu.outputs.matrix), 'dummy') != true
-    strategy:
-      fail-fast: false
-      matrix:
-        folders: ${{ fromJson(needs.setup_gpu.outputs.matrix) }}
-        machine_type: [single-gpu, multi-gpu]
+    #if: contains(fromJson(needs.setup_gpu.outputs.matrix), 'dummy') != true
+    #strategy:
+    #  fail-fast: false
+    #  matrix:
+    #    folders: ${{ fromJson(needs.setup_gpu.outputs.matrix) }}
+    #    machine_type: [single-gpu, multi-gpu]
     runs-on: rocm
     container:
       image: huggingface/transformers-pytorch-amd-gpu-push-ci  # <--- We test only for PyTorch for now
