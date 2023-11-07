@@ -49,13 +49,12 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       test_map: ${{ steps.set-matrix.outputs.test_map }}
     steps:
-      - name: Use internal transformers repository 
+      - name: Remove transformers repository (installed during docker image build)
+        working-directory: /
         shell: bash
-        run:  |
-          cd / 
+        run:  | 
           rm -r transformers
           git clone https://github.com/ROCmSoftwarePlatform/transformers.git
-          cd -
           
       # Necessary to get the correct branch name and commit SHA for `workflow_run` event
       # We also take into account the `push` event (we might want to test some changes in a branch)
@@ -152,13 +151,18 @@ jobs:
       image: huggingface/transformers-pytorch-amd-gpu-push-ci  # <--- We test only for PyTorch for now
       options: --device /dev/kfd --device /dev/dri --env HIP_VISIBLE_DEVICES --env ROCR_VISIBLE_DEVICES --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
     steps:
-      - name: Use internal transformers repository 
+
+      - name: Remove transformers repository (installed during docker image build)
+        working-directory: /
         shell: bash
-        run:  |
-          cd / 
+        run:  | 
           rm -r transformers
           git clone https://github.com/ROCmSoftwarePlatform/transformers.git
-          cd -
+          
+      - name: Reinstall transformers in edit mode (remove the one installed during docker image build)
+        working-directory: /transformers
+        run: python3 -m pip uninstall -y transformers && python3 -m pip install -e .
+
       # Necessary to get the correct branch name and commit SHA for `workflow_run` event
       # We also take into account the `push` event (we might want to test some changes in a branch)
       - name: Prepare custom environment variables
@@ -190,10 +194,6 @@ jobs:
           echo "updated branch = $(git branch --show-current)"
           git checkout ${{ env.CI_SHA }}
           echo "log = $(git log -n 1)"
-
-      - name: Reinstall transformers in edit mode (remove the one installed during docker image build)
-        working-directory: /transformers
-        run: python3 -m pip uninstall -y transformers && python3 -m pip install -e .
 
       - name: Echo folder ${{ matrix.folders }}
         shell: bash
