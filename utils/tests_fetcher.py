@@ -19,7 +19,7 @@ Welcome to tests_fetcher V2.
 This util is designed to fetch tests to run on a PR so that only the tests impacted by the modifications are run, and
 when too many models are being impacted, only run the tests of a subset of core models. It works like this.
 
-Stage 1: Identify the modified files. For jobs that run on the main branch, it's just the diff with the last commit.
+Stage 1: Identify the modified files. For jobs that run on the master branch, it's just the diff with the last commit.
 On a PR, this takes all the files from the branching point to the current commit (so all modifications in a PR, not
 just the last commit) but excludes modifications that are on docstrings or comments only.
 
@@ -42,7 +42,7 @@ Base use to fetch the tests in a pull request
 python utils/tests_fetcher.py
 ```
 
-Base use to fetch the tests on a the main branch (with diff from the last commit):
+Base use to fetch the tests on a the master branch (with diff from the last commit):
 
 ```bash
 python utils/tests_fetcher.py --diff_with_last_commit
@@ -300,7 +300,7 @@ def get_modified_python_files(diff_with_last_commit: bool = False) -> List[str]:
     """
     Return a list of python files that have been modified between:
 
-    - the current head and the main branch if `diff_with_last_commit=False` (default)
+    - the current head and the master branch if `diff_with_last_commit=False` (default)
     - the current head and its parent commit otherwise.
 
     Returns:
@@ -311,15 +311,15 @@ def get_modified_python_files(diff_with_last_commit: bool = False) -> List[str]:
     repo = Repo(PATH_TO_REPO)
 
     if not diff_with_last_commit:
-        print(f"main is at {repo.refs.main.commit}")
+        print(f"master is at {repo.refs.master.commit}")
         print(f"Current head is at {repo.head.commit}")
 
-        branching_commits = repo.merge_base(repo.refs.main, repo.head)
+        branching_commits = repo.merge_base(repo.refs.master, repo.head)
         for commit in branching_commits:
             print(f"Branching commit: {commit}")
         return get_diff(repo, repo.head.commit, branching_commits)
     else:
-        print(f"main is at {repo.head.commit}")
+        print(f"master is at {repo.head.commit}")
         parent_commits = repo.head.commit.parents
         for commit in parent_commits:
             print(f"Parent commit: {commit}")
@@ -424,7 +424,7 @@ def get_doctest_files(diff_with_last_commit: bool = False) -> List[str]:
     """
     Return a list of python and Markdown files where doc example have been modified between:
 
-    - the current head and the main branch if `diff_with_last_commit=False` (default)
+    - the current head and the master branch if `diff_with_last_commit=False` (default)
     - the current head and its parent commit otherwise.
 
     Returns:
@@ -435,15 +435,15 @@ def get_doctest_files(diff_with_last_commit: bool = False) -> List[str]:
 
     test_files_to_run = []  # noqa
     if not diff_with_last_commit:
-        print(f"main is at {repo.refs.main.commit}")
+        print(f"master is at {repo.refs.master.commit}")
         print(f"Current head is at {repo.head.commit}")
 
-        branching_commits = repo.merge_base(repo.refs.main, repo.head)
+        branching_commits = repo.merge_base(repo.refs.master, repo.head)
         for commit in branching_commits:
             print(f"Branching commit: {commit}")
         test_files_to_run = get_diff_for_doctesting(repo, repo.head.commit, branching_commits)
     else:
-        print(f"main is at {repo.head.commit}")
+        print(f"master is at {repo.head.commit}")
         parent_commits = repo.head.commit.parents
         for commit in parent_commits:
             print(f"Parent commit: {commit}")
@@ -452,7 +452,7 @@ def get_doctest_files(diff_with_last_commit: bool = False) -> List[str]:
     all_test_files_to_run = get_all_doctest_files()
 
     # Add to the test files to run any removed entry from "utils/not_doctested.txt".
-    new_test_files = get_new_doctest_files(repo, repo.head.commit, repo.refs.main.commit)
+    new_test_files = get_new_doctest_files(repo, repo.head.commit, repo.refs.master.commit)
     test_files_to_run = list(set(test_files_to_run + new_test_files))
 
     # Do not run slow doctest tests on CircleCI
@@ -766,8 +766,8 @@ def create_reverse_dependency_map() -> Dict[str, List[str]]:
         something_changed = False
         for m in all_modules:
             for d in direct_deps[m]:
-                # We stop recursing at an init (cause we always end up in the main init and we don't want to add all
-                # files which the main init imports)
+                # We stop recursing at an init (cause we always end up in the master init and we don't want to add all
+                # files which the master init imports)
                 if d.endswith("__init__.py"):
                     continue
                 if d not in direct_deps:
@@ -910,7 +910,7 @@ def infer_tests_to_run(
     json_output_file: Optional[str] = None,
 ):
     """
-    The main function called by the test fetcher. Determines the tests to run from the diff.
+    The master function called by the test fetcher. Determines the tests to run from the diff.
 
     Args:
         output_file (`str`):
@@ -922,8 +922,8 @@ def infer_tests_to_run(
             - doctest_list.txt: The list of doctests to run.
 
         diff_with_last_commit (`bool`, *optional*, defaults to `False`):
-            Whether to analyze the diff with the last commit (for use on the main branch after a PR is merged) or with
-            the branching point from main (for use on each PR).
+            Whether to analyze the diff with the last commit (for use on the master branch after a PR is merged) or with
+            the branching point from master (for use on each PR).
         filter_models (`bool`, *optional*, defaults to `True`):
             Whether or not to filter the tests to core models only, when a file modified results in a lot of model
             tests.
@@ -1112,8 +1112,8 @@ if __name__ == "__main__":
             print("Force-launching all tests")
 
         diff_with_last_commit = args.diff_with_last_commit
-        if not diff_with_last_commit and not repo.head.is_detached and repo.head.ref == repo.refs.main:
-            print("main branch detected, fetching tests against last commit.")
+        if not diff_with_last_commit and not repo.head.is_detached and repo.head.ref == repo.refs.master:
+            print("master branch detected, fetching tests against last commit.")
             diff_with_last_commit = True
 
         if not commit_flags["test_all"]:
