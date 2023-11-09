@@ -13,7 +13,10 @@ on:
       - "tests/**"
       - ".github/**"
       - "templates/**"
-      - "utils/**"
+      - "utils/**"    
+  pull_request:
+     types: [opened, reopened]
+     branches: ["main"]
 
 jobs:
   run_amd_ci:
