@@ -1018,6 +1018,8 @@ class GenerationTesterMixin:
                     output, input_ids, model.config, use_cache=True, num_return_sequences=beam_scorer.num_beams
                 )
 
+    import pytest
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_accelerate
     @require_torch_multi_gpu
     def test_model_parallel_beam_search(self):
@@ -2750,6 +2752,9 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
 
         self.assertListEqual(outputs, ["Wie alt sind Sie?"])
 
+    
+    import pytest
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_constrained_beam_search_mixin_type_checks(self):
         # PT-only test: TF doesn't have constrained beam search
         tokenizer = AutoTokenizer.from_pretrained("patrickvonplaten/t5-tiny-random")

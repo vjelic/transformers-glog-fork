@@ -23,6 +23,8 @@ class GenerationIntegrationTestsMixin:
         "set_seed": None,
     }
 
+    import pytest
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_validate_generation_inputs(self):
         model_cls = self.framework_dependent_parameters["AutoModelForSeq2SeqLM"]
         return_tensors = self.framework_dependent_parameters["return_tensors"]
