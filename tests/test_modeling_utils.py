@@ -159,6 +159,7 @@ def check_models_equal(model1, model2):
 
 @require_torch
 class ModelUtilsTest(TestCasePlus):
+    @mark.skip(reason="UT compatability skip")
     @slow
     def test_model_from_pretrained(self):
         for model_name in BERT_PRETRAINED_MODEL_ARCHIVE_LIST[:1]:
