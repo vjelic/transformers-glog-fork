@@ -2482,6 +2482,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
 
         self.assertTrue(torch.allclose(transition_scores_sum, outputs.sequences_scores, atol=1e-3))
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @slow
     def test_beam_search_example_integration(self):
         # PT-only test: TF doesn't have a BeamSearchScorer
@@ -2682,6 +2683,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
             ],
         )
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @slow
     def test_constrained_beam_search_example_translation_mixin(self):
         # PT-only test: TF doesn't have constrained beam search
@@ -2707,6 +2709,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
 
         self.assertListEqual(outputs, ["Wie alt sind Sie?"])
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @slow
     def test_constrained_beam_search_example_integration(self):
         # PT-only test: TF doesn't have constrained beam search

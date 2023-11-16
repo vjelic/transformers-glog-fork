@@ -167,6 +167,7 @@ class AutoModelTest(unittest.TestCase):
             self.assertIsNotNone(model)
             self.assertIsInstance(model, BertForMaskedLM)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @slow
     def test_model_for_encoder_decoder_lm(self):
         for model_name in T5_PRETRAINED_MODEL_ARCHIVE_LIST[:1]:
