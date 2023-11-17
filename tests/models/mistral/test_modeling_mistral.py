@@ -1,3 +1,4 @@
+import pytest
 # coding=utf-8
 # Copyright 2023 Mistral AI and The HuggingFace Inc. team. All rights reserved.
 #
