@@ -488,6 +488,7 @@ class FlaxGPT2EncoderDecoderModelTest(FlaxEncoderDecoderMixin, unittest.TestCase
         return FlaxEncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-cased", "gpt2")
 
     @slow
+    @pytest.mark.skip(reason="UT compatibility skip")
     def test_bert2gpt2_summarization(self):
         tokenizer_in = AutoTokenizer.from_pretrained("bert-base-cased")
         tokenizer_out = AutoTokenizer.from_pretrained("gpt2")

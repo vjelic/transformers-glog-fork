@@ -1,3 +1,4 @@
+import pytest
 # coding=utf-8
 # Copyright 2020 The HuggingFace Team. All rights reserved.
 #
@@ -15,6 +16,7 @@
 
 
 from __future__ import annotations
+import pytest
 
 import unittest
 

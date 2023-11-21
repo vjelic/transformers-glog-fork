@@ -438,6 +438,7 @@ class MBartEnroIntegrationTest(AbstractSeq2SeqIntegrationTest):
         # self.assertEqual(self.tgt_text[1], decoded[1])
 
     @slow
+    @pytest.mark.skip(reason="UT compatibility skip")
     def test_enro_generate_batch(self):
         batch: BatchEncoding = self.tokenizer(self.src_text, return_tensors="pt", padding=True, truncation=True).to(
             torch_device

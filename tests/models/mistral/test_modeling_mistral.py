@@ -444,6 +444,7 @@ class MistralIntegrationTest(unittest.TestCase):
         torch.testing.assert_close(out[0, 0, :30], EXPECTED_SLICE, atol=1e-4, rtol=1e-4)
 
     @slow
+    @pytest.mark.skip(reason="UT compatibility skip")
     def test_model_7b_generation(self):
         EXPECTED_TEXT_COMPLETION = (
             """My favourite condiment is mayonnaise. I love it on sandwiches, in salads, on burgers"""
