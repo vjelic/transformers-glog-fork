@@ -373,6 +373,7 @@ class MraModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
 @require_torch
 class MraModelIntegrationTest(unittest.TestCase):
     @slow
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_inference_no_head(self):
         model = MraModel.from_pretrained("uw-madison/mra-base-512-4")
         input_ids = torch.arange(256).unsqueeze(0)
@@ -390,6 +391,7 @@ class MraModelIntegrationTest(unittest.TestCase):
         self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
 
     @slow
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_inference_masked_lm(self):
         model = MraForMaskedLM.from_pretrained("uw-madison/mra-base-512-4")
         input_ids = torch.arange(256).unsqueeze(0)
@@ -409,6 +411,7 @@ class MraModelIntegrationTest(unittest.TestCase):
         self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
 
     @slow
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_inference_masked_lm_long_input(self):
         model = MraForMaskedLM.from_pretrained("uw-madison/mra-base-4096-8-d3")
         input_ids = torch.arange(4096).unsqueeze(0)

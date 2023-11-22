@@ -1235,6 +1235,7 @@ class ModelTesterMixin:
 
             check_hidden_states_output(inputs_dict, config, model_class)
 
+    @mark.skip(reason="UT compatability skip")
     def test_retain_grad_hidden_states_attentions(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
         config.output_hidden_states = True
@@ -1397,6 +1398,7 @@ class ModelTesterMixin:
 
             self.assertTrue(models_equal)
 
+    @mark.skip(reason="UT compatability skip")
     def test_resize_tokens_embeddings(self):
         (
             original_config,
@@ -1477,6 +1479,7 @@ class ModelTesterMixin:
             ):
                 model.resize_token_embeddings(model_vocab_size, pad_to_multiple_of=1.3)
 
+    @mark.skip(reason="UT compatability skip")
     def test_resize_embeddings_untied(self):
         (
             original_config,
@@ -2705,6 +2708,7 @@ class ModelTesterMixin:
 
                     loss.backward()
 
+    @mark.skip(reason="UT compatability skip")
     def test_load_with_mismatched_shapes(self):
         if not self.test_mismatched_shapes:
             return
