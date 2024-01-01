@@ -520,13 +520,13 @@ class TFGPT2MainLayer(tf.keras.layers.Layer):
 
             outputs = block(
                 hidden_states,
-                layer_past,
-                attention_mask,
-                head_mask[i],
-                encoder_hidden_states,
-                encoder_attention_mask,
-                use_cache,
-                output_attentions,
+                layer_past=layer_past,
+                attention_mask=attention_mask,
+                head_mask=head_mask[i],
+                encoder_hidden_states=encoder_hidden_states,
+                encoder_attention_mask=encoder_attention_mask,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
                 training=training,
             )
 
@@ -944,7 +944,7 @@ class TFGPT2LMHeadModel(TFGPT2PreTrainedModel, TFCausalLanguageModelingLoss):
             training=training,
         )
         hidden_states = transformer_outputs[0]
-        logits = tf.matmul(hidden_states, self.transformer.wte.weights, transpose_b=True)
+        logits = tf.matmul(hidden_states, self.transformer.wte.weights[0], transpose_b=True)
 
         loss = None
         if labels is not None:

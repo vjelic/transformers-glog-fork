@@ -16,7 +16,7 @@
 """TF general model utils."""
 
 from __future__ import annotations
-
+import math
 import functools
 import gc
 import inspect
@@ -33,6 +33,7 @@ import h5py
 import numpy as np
 import tensorflow as tf
 from huggingface_hub import Repository, list_repo_files
+import keras
 from keras import backend as K
 from packaging.version import parse
 
@@ -79,6 +80,7 @@ if is_safetensors_available():
 if TYPE_CHECKING:
     from . import PreTrainedTokenizerBase
 
+k2 = keras.__version__.startswith('2')
 
 logger = logging.get_logger(__name__)
 tf_logger = tf.get_logger()
@@ -111,7 +113,7 @@ class TFModelUtilsMixin:
         Get the number of (optionally, trainable) parameters in the model.
 
         Args:
-            only_trainable (`bool`, *optional*, defaults to `False`):
+a            only_trainable (`bool`, *optional*, defaults to `False`):
                 Whether or not to return only the number of trainable parameters
 
         Returns:
@@ -618,7 +620,7 @@ def dtype_byte_size(dtype):
     """
     if dtype == tf.bool:
         return 1 / 8
-    bit_search = re.search(r"[^\d](\d+)$", dtype.name)
+    bit_search = re.search(r"[^\d](\d+)$", dtype if isinstance(dtype,str) else dtype.name)
     if bit_search is None:
         raise ValueError(f"`dtype` is not a valid dtype: {dtype}.")
     bit_size = int(bit_search.groups()[0])
@@ -928,14 +930,15 @@ def load_tf_weights_from_h5(model, resolved_archive_file, ignore_mismatched_size
                 # Loop over each weights from the instantiated model and compare with the weights from the H5 file
                 for symbolic_weight in symbolic_weights:
                     # TF names always start with the model name so we ignore it
+                    wname = symbolic_weight.name if k2 else symbolic_weight.path
                     if _prefix is not None:
                         delimeter = len(_prefix.split("/"))
                         symbolic_weight_name = "/".join(
-                            symbolic_weight.name.split("/")[:delimeter]
-                            + symbolic_weight.name.split("/")[delimeter + 1 :]
+                            wname.split("/")[:delimeter]
+                            + wname.split("/")[delimeter + 1 :]
                         )
                     else:
-                        symbolic_weight_name = "/".join(symbolic_weight.name.split("/")[1:])
+                        symbolic_weight_name = "/".join(wname.split("/")[1:])
 
                     # here we check if the current weight is among the weights from the H5 file
                     # If yes, get the weight_value of the corresponding weight from the H5 file
@@ -954,7 +957,7 @@ def load_tf_weights_from_h5(model, resolved_archive_file, ignore_mismatched_size
                     # If the current weight is found
                     if saved_weight_value is not None:
                         # Check if the shape of the current weight and the one from the H5 file are different
-                        if K.int_shape(symbolic_weight) != saved_weight_value.shape:
+                        if k2 and (K.int_shape(symbolic_weight) != saved_weight_value.shape):
                             # If yes we reshape the weight from the H5 file accordingly to the current weight
                             # If the two shapes are not compatible we raise an issue
                             try:
@@ -974,7 +977,11 @@ def load_tf_weights_from_h5(model, resolved_archive_file, ignore_mismatched_size
                         weight_value_tuples.append((symbolic_weight, array))
 
     # Load all the weights
-    K.batch_set_value(weight_value_tuples)
+    if k2:
+        K.batch_set_value(weight_value_tuples)
+    else:
+        for x in weight_value_tuples:
+            x[0].assign(x[1])
 
     # Compute the missing and unexpected layers
     missing_layers.extend(list(symbolic_weights_names - saved_weight_names_set))
@@ -1147,7 +1154,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
         self.config = config
         self.name_or_path = config.name_or_path
         self.generation_config = GenerationConfig.from_model_config(config) if self.can_generate() else None
-        self._set_save_spec(self.input_signature)
+        self._set_save_spec(self.input_signature, kwargs={})
 
     def get_config(self):
         return self.config.to_dict()
@@ -1522,6 +1529,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
             self._using_dummy_loss = True
         else:
             self._using_dummy_loss = False
+        #jit_compile=None
         parent_args = list(inspect.signature(tf.keras.Model.compile).parameters.keys())
         # This argument got renamed, we need to support both versions
         if "steps_per_execution" in parent_args:
@@ -1533,6 +1541,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
                 weighted_metrics=weighted_metrics,
                 run_eagerly=run_eagerly,
                 steps_per_execution=steps_per_execution,
+                #jit_compile=jit_compile,
                 **kwargs,
             )
         else:
@@ -1544,8 +1553,14 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
                 weighted_metrics=weighted_metrics,
                 run_eagerly=run_eagerly,
                 experimental_steps_per_execution=steps_per_execution,
+                #jit_compile=jit_compile,
                 **kwargs,
             )
+        # we build it here explicitly, because, in distributed case, Keras3 does not automatically
+        # build optimizers of clone instances, and that interferes with XLA (because clone instances
+        # have to construct their internal variables during the first step, and it's not possible to
+        # construct variables inside XLA-compiled functions)
+        self.optimizer.build(self.trainable_variables)
 
     def compute_loss(self, *args, **kwargs):
         if hasattr(tf.keras.Model, "compute_loss"):
@@ -1636,7 +1651,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
             else:
                 y_pred = self(x, training=True)
             if self._using_dummy_loss:
-                loss = self.compiled_loss(y_pred.loss, y_pred.loss, sample_weight, regularization_losses=self.losses)
+                loss = y_pred.loss
             else:
                 loss = None
 
@@ -1668,12 +1683,33 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
                     y_pred = y_pred[0]
 
             if loss is None:
-                loss = self.compiled_loss(y, y_pred, sample_weight, regularization_losses=self.losses)
+                loss = self.compute_loss(y, y_pred, sample_weight, regularization_losses=self.losses)
+            loss = tf.cast(loss, tf.float32)
+            saved_loss = loss
+            try:
+                loss = self.optimizer.scale_loss(loss)
+                fp16 = True
+            except:
+                fp16 = False
+
+            loss_multiplier = loss / saved_loss
 
         # Run backwards pass.
-        self.optimizer.minimize(loss, self.trainable_variables, tape=tape)
-
-        self.compiled_metrics.update_state(y, y_pred, sample_weight)
+        saved_variables=self.trainable_variables[:]
+        grads = tape.gradient(loss, self.trainable_variables)
+        #with tf.control_dependencies([tf.cond(tf.math.is_finite(loss), lambda: tf.no_op(), lambda: tf.print([(x.path, tf.math.reduce_std(x)) for x in self.trainable_variables+saved_variables]))]):
+        loss /= loss_multiplier
+        #tf.print(loss_multiplier, loss, tf.math.reduce_std(grads[0]))
+        #with tf.control_dependencies([tf.cond((self.optimizer.step_counter % 100) == 0, 
+        #    lambda: tf.print("loss_scale", self.optimizer.step_counter, self.optimizer.learning_rate, self.optimizer.dynamic_scale),
+        #    lambda: tf.no_op())]):
+        #grads = self.optimizer.get_unscaled_gradients(grads)
+        self.optimizer.apply(grads, self.trainable_variables)
+        for metric in self.metrics:
+            if isinstance(metric, keras.metrics.Mean):
+                metric.update_state(loss, sample_weight)
+            else:
+                metric.update_state(y, y_pred, sample_weight)
         # Collect metrics to return
         return_metrics = {}
         for metric in self.metrics:
@@ -1743,7 +1779,7 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
         else:
             y_pred = self(x, training=False)
         if self._using_dummy_loss:
-            loss = self.compiled_loss(y_pred.loss, y_pred.loss, sample_weight, regularization_losses=self.losses)
+            loss = y_pred.loss
         else:
             loss = None
 
@@ -1775,9 +1811,13 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
                 y_pred = y_pred[0]
 
         if loss is None:
-            loss = self.compiled_loss(y, y_pred, sample_weight, regularization_losses=self.losses)
+            loss = self.compute_loss(y, y_pred, sample_weight) #, regularization_losses=self.losses)
 
-        self.compiled_metrics.update_state(y, y_pred, sample_weight)
+        for metric in self.metrics:
+            if isinstance(metric, keras.metrics.Mean):
+                metric.update_state(loss, sample_weight)
+            else:
+                metric.update_state(y, y_pred, sample_weight)
         # Collect metrics to return
         return_metrics = {}
         for metric in self.metrics:
@@ -2459,7 +2499,17 @@ class TFPreTrainedModel(tf.keras.Model, TFModelUtilsMixin, TFGenerationMixin, Pu
                 state_dict = {strip_model_name_and_prefix(w.name): w.value() for w in self.weights}
                 safe_save_file(state_dict, output_model_file, metadata={"format": "tf"})
             else:
-                self.save_weights(output_model_file)
+                if k2:
+                    self.save_weights(output_model_file)
+                else:
+                    with h5py.File(output_model_file, mode="w") as h5file:
+                        for x in self.weights:
+                            x.name_backup = x.name
+                            x.name = x.path
+                        # is this legal?
+                        keras.src.legacy.saving.legacy_h5_format.save_weights_to_hdf5_group(h5file, self)
+                        for x in self.weights:
+                            x.name = x.name_backup
             logger.info(f"Model weights saved in {output_model_file}")
         else:
             save_index_file = os.path.join(save_directory, TF2_WEIGHTS_INDEX_NAME)
@@ -3215,9 +3265,9 @@ class TFConv1D(tf.keras.layers.Layer):
             return
         self.built = True
         self.weight = self.add_weight(
-            "weight", shape=[self.nx, self.nf], initializer=get_initializer(self.initializer_range)
+            name="weight", shape=[self.nx, self.nf], initializer=get_initializer(self.initializer_range)
         )
-        self.bias = self.add_weight("bias", shape=[1, self.nf], initializer=tf.zeros_initializer())
+        self.bias = self.add_weight(name="bias", shape=[1, self.nf], initializer=tf.zeros_initializer())
 
     def call(self, x):
         bz, sl = shape_list(x)[:2]

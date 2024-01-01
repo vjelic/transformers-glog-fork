@@ -171,6 +171,7 @@ class TFTopPLogitsWarper(TFLogitsWarper):
         topk_scores, topk_indices = tf.math.top_k(scores, scores.shape[-1])
 
         mask_scores = tf.fill(scores.shape, self.filter_value)
+        mask_scores = tf.cast(mask_scores, dtype=topk_scores.dtype)
         cumulative_probs = tf.math.cumsum(stable_softmax(topk_scores, axis=-1), axis=-1)
         score_mask = cumulative_probs < self.top_p
 
