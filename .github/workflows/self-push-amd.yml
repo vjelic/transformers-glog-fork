@@ -17,18 +17,6 @@ env:
   RUN_PT_TF_CROSS_TESTS: 1
 
 jobs:
-  check_runner_status:
-    name: Check Runner Status
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout transformers
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
-
-      - name: Check Runner Status
-        run: python utils/check_self_hosted_runner.py --target_runners amd-mi210-single-gpu-ci-runner-docker --token ${{ secrets.ACCESS_REPO_INFO_TOKEN }}
-
   check_runners:
     name: Check Runners
     strategy:
@@ -311,28 +299,3 @@ jobs:
           echo "updated branch = $(git branch --show-current)"
           git checkout ${{ env.CI_SHA }}
           echo "log = $(git log -n 1)"
-
-      - uses: actions/download-artifact@v3
-      - name: Send message to Slack
-        env:
-          CI_SLACK_BOT_TOKEN: ${{ secrets.CI_SLACK_BOT_TOKEN }}
-          CI_SLACK_CHANNEL_ID: ${{ secrets.CI_SLACK_CHANNEL_ID }}
-          CI_SLACK_CHANNEL_ID_DAILY: ${{ secrets.CI_SLACK_CHANNEL_ID_DAILY }}
-          CI_SLACK_CHANNEL_ID_AMD: ${{ secrets.CI_SLACK_CHANNEL_ID_AMD }}
-          CI_SLACK_CHANNEL_DUMMY_TESTS: ${{ secrets.CI_SLACK_CHANNEL_DUMMY_TESTS }}
-          CI_SLACK_REPORT_CHANNEL_ID: ${{ secrets.CI_SLACK_CHANNEL_ID_AMD }}
-          ACCESS_REPO_INFO_TOKEN: ${{ secrets.ACCESS_REPO_INFO_TOKEN }}
-          CI_EVENT: Push CI (AMD) - ${{ inputs.gpu_flavor }}
-          CI_TITLE_PUSH: ${{ github.event.head_commit.message }}
-          CI_TITLE_WORKFLOW_RUN: ${{ github.event.workflow_run.head_commit.message }}
-          CI_SHA: ${{ env.CI_SHA }}
-          RUNNER_STATUS: ${{ needs.check_runner_status.result }}
-          RUNNER_ENV_STATUS: ${{ needs.check_runners.result }}
-          SETUP_STATUS: ${{ needs.setup_gpu.result }}
-
-        # We pass `needs.setup_gpu.outputs.matrix` as the argument. A processing in `notification_service.py` to change
-        # `models/bert` to `models_bert` is required, as the artifact names use `_` instead of `/`.
-        run: |
-          pip install slack_sdk
-          pip show slack_sdk
-          python utils/notification_service.py "${{ needs.setup_gpu.outputs.matrix }}"
