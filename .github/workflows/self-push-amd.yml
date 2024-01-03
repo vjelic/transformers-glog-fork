@@ -1,6 +1,13 @@
 name: Self-hosted runner AMD GPU (push)
 
 on:
+  workflow_dispatch:
+    inputs:
+      gpu_flavor: 
+        default: 'mi210'
+        required: true
+        type: string
+
   workflow_call:
     inputs:
       gpu_flavor:
