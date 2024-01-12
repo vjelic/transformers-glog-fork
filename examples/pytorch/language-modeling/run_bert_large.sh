@@ -34,24 +34,24 @@ export HIP_VISIBLE_DEVICES=0,1,2,3
 
 N=1
 
-export ENABLE_F8_GEMM=0
-export ENABLE_F8_CONV=0
-for i in $(seq 1 $N);
-do
-	python3 run_mlm.py --model_name_or_path bert-large-uncased \
-			   --dataset_name wikitext \
-			   --dataset_config_name wikitext-2-raw-v1 \
-			   --do_train \
-			   --max_steps 100 \
-			   --logging_steps 10 \
-			   --output_dir /tmp/test-bert-large-fp16-4gpu-$i \
-			   --overwrite_output_dir \
-			   --per_device_train_batch_size 24 \
-			   --fp16 --half_precision_backend apex
-done
-
-echo "Done with fp16 testing"
-
+#export ENABLE_F8_GEMM=0
+#export ENABLE_F8_CONV=0
+#for i in $(seq 1 $N);
+#do
+#	python3 run_mlm.py --model_name_or_path bert-large-uncased \
+#			   --dataset_name wikitext \
+#			   --dataset_config_name wikitext-2-raw-v1 \
+#			   --do_train \
+#			   --max_steps 100 \
+#			   --logging_steps 10 \
+#			   --output_dir /tmp/test-bert-large-fp16-4gpu-$i \
+#			   --overwrite_output_dir \
+#			   --per_device_train_batch_size 24 \
+#			   --fp16 --half_precision_backend apex
+#done
+#
+#echo "Done with fp16 testing"
+#
 
 export ENABLE_F8_GEMM=1
 export ENABLE_F8_CONV=1
@@ -61,11 +61,19 @@ do
 			   --dataset_name wikitext \
 			   --dataset_config_name wikitext-2-raw-v1 \
 			   --do_train \
-			   --max_steps 100 \
-			   --logging_steps 10 \
-			   --output_dir /tmp/test-bert-large-f8-4gpu-$i \
+			   --do_eval \
+			   --max_steps 16000 \
+			   --output_dir /tmp/test-bert-large-$i \
 			   --overwrite_output_dir \
-			   --per_device_train_batch_size 24 \
-			   --fp16 --half_precision_backend apex
+			   --per_device_train_batch_size 8 \
+			   --fp16 --half_precision_backend apex \
+			   --save_total_limit 5 \
+			   --load_best_model_at_end True \
+			   --save_strategy epoch \
+			   --evaluation_strategy epoch \
+			   --skip_memory_metrics=True
+#			   --logging_steps 500 \
+#			   --logging_dir log \
+			   #--output_dir /tmp/test-bert-large-convergence-$i \
 done
 echo "Done with f8 testing"
