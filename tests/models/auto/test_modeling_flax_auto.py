@@ -65,7 +65,7 @@ class FlaxAutoModelTest(unittest.TestCase):
             def eval(**kwargs):
                 return model(**kwargs)
 
-            eval(**tokens).block_until_ready()
+            jax.block_until_ready(eval(**tokens))
 
     @pytest.mark.skip(reason="UT compatability skip")
     @slow
@@ -79,7 +79,7 @@ class FlaxAutoModelTest(unittest.TestCase):
             def eval(**kwargs):
                 return model(**kwargs)
 
-            eval(**tokens).block_until_ready()
+            jax.block_until_ready(eval(**tokens))
 
     def test_repo_not_found(self):
         with self.assertRaisesRegex(
