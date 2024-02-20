@@ -1,5 +1,5 @@
 GitPython
-datasets
+datasets==2.0.0
 black
 parameterized
 accelerate
