@@ -320,7 +320,7 @@ class AlbertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
         for type in ["absolute", "relative_key", "relative_key_query"]:
             config_and_inputs[0].position_embedding_type = type
             self.model_tester.create_and_check_model(*config_and_inputs)
-
+    
     @slow
     def test_model_from_pretrained(self):
         for model_name in ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST[:1]:

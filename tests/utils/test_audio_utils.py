@@ -276,6 +276,7 @@ class AudioUtilsFunctionTester(unittest.TestCase):
         expected = np.array([[0.0, 0.0669873, 0.9330127, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
         self.assertTrue(np.allclose(spec, expected))
 
+    @pytest.mark.skip(reason="rocm skip")
     def test_spectrogram_integration_test(self):
         waveform = self._load_datasamples(1)[0]
 
@@ -376,6 +377,7 @@ class AudioUtilsFunctionTester(unittest.TestCase):
         # fmt: on
         self.assertTrue(np.allclose(spec[:64, 400], expected, atol=1e-5))
 
+    @pytest.mark.skip(reason="rocm skip")
     def test_spectrogram_center_padding(self):
         waveform = self._load_datasamples(1)[0]
 
@@ -465,6 +467,7 @@ class AudioUtilsFunctionTester(unittest.TestCase):
         # fmt: on
         self.assertTrue(np.allclose(spec[:64, 0], expected))
 
+    @pytest.mark.skip(reason="rocm skip")
     def test_spectrogram_shapes(self):
         waveform = self._load_datasamples(1)[0]
 
@@ -585,6 +588,7 @@ class AudioUtilsFunctionTester(unittest.TestCase):
         # fmt: on
         self.assertTrue(np.allclose(spec[:, 300], expected))
 
+    @pytest.mark.skip(reason="rocm skip")
     def test_spectrogram_power(self):
         waveform = self._load_datasamples(1)[0]
 

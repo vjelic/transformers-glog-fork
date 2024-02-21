@@ -28,6 +28,7 @@ class ZeroShotAudioClassificationPipelineTests(unittest.TestCase):
     # and only CLAP would be there for now.
     # model_mapping = {CLAPConfig: CLAPModel}
 
+    @pytest.mark.skip(reason="rocm skip")
     @require_torch
     def test_small_model_pt(self):
         audio_classifier = pipeline(

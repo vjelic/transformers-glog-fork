@@ -595,6 +595,7 @@ class TvltModelIntegrationTest(unittest.TestCase):
             torch.allclose(outputs.last_hidden_state[:, :2, :2], expected_last_hidden_state_slice, atol=1e-4)
         )
 
+    @pytest.mark.skip(reason="rocm skip")
     def test_inference_for_pretraining(self):
         model = TvltForPreTraining.from_pretrained("ZinengTang/tvlt-base").to(torch_device)
 

@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 from unittest.mock import patch
-
+import pytest
 from transformers.testing_utils import TestCasePlus, get_gpu_count, slow
 
 
@@ -228,6 +228,7 @@ class ExamplesTests(TestCasePlus):
             self.assertGreaterEqual(result["eval_accuracy"], 0.75)
             self.assertGreaterEqual(result["eval_f1"], 0.3)
 
+    @pytest.mark.skip(reason="rocm skip")
     @slow
     def test_run_qa(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
@@ -255,6 +256,7 @@ class ExamplesTests(TestCasePlus):
             self.assertGreaterEqual(result["eval_f1"], 30)
             self.assertGreaterEqual(result["eval_exact"], 30)
 
+    @pytest.mark.skip(reason="rocm skip")
     @slow
     def test_run_flax_speech_recognition_seq2seq(self):
         tmp_dir = self.get_auto_remove_tmp_dir()

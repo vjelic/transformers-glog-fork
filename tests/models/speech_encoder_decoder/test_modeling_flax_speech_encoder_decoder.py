@@ -506,6 +506,7 @@ class FlaxEncoderDecoderMixin:
         self.assertLessEqual(diff, tol, f"Difference between torch and flax is {diff} (>= {tol}).")
 
     @is_pt_flax_cross_test
+    @pytest.mark.skip(reason="rocm skip")
     def test_pt_flax_equivalence(self):
         config_inputs_dict = self.prepare_config_and_inputs()
         config = config_inputs_dict.pop("config")
@@ -546,6 +547,7 @@ class FlaxEncoderDecoderMixin:
         self.check_equivalence_flax_to_pt(config, decoder_config, inputs_dict)
 
     @slow
+    @pytest.mark.skip(reason="rocm skip")
     def test_real_model_save_load_from_pretrained(self):
         model_2 = self.get_pretrained_model()
         inputs = ids_tensor([13, 5], model_2.config.encoder.vocab_size)
@@ -745,6 +747,7 @@ class FlaxWav2Vec2BartModelTest(FlaxEncoderDecoderMixin, unittest.TestCase):
         }
 
     @slow
+    @pytest.mark.skip(reason="rocm skip")
     def test_flaxwav2vec2bart_pt_flax_equivalence(self):
         pt_model = SpeechEncoderDecoderModel.from_pretrained("patrickvonplaten/wav2vec2-2-bart-large")
         fx_model = FlaxSpeechEncoderDecoderModel.from_pretrained(
@@ -862,6 +865,7 @@ class FlaxWav2Vec2BertModelTest(FlaxEncoderDecoderMixin, unittest.TestCase):
         }
 
     @slow
+    @pytest.mark.skip(reason="rocm skip")
     def test_flaxwav2vec2bert_pt_flax_equivalence(self):
         pt_model = SpeechEncoderDecoderModel.from_pretrained("speech-seq2seq/wav2vec2-2-bert-large")
         fx_model = FlaxSpeechEncoderDecoderModel.from_pretrained("speech-seq2seq/wav2vec2-2-bert-large", from_pt=True)

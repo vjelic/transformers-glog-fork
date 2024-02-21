@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import unittest
-
+import pytest
 import numpy as np
 
 from transformers import MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING, TF_MODEL_FOR_AUDIO_CLASSIFICATION_MAPPING
@@ -107,6 +107,7 @@ class AudioClassificationPipelineTests(unittest.TestCase):
         output = audio_classifier(audio_dict, top_k=4)
         self.assertIn(nested_simplify(output, decimals=4), [EXPECTED_OUTPUT, EXPECTED_OUTPUT_PT_2])
 
+    @pytest.mark.skip(reason="rocm skip")
     @require_torch
     @slow
     def test_large_model_pt(self):

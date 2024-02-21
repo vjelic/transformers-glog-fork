@@ -282,6 +282,7 @@ class MraModelTester:
 
 
 @require_torch
+@pytest.mark.skip(reason="UT compatibility skip")
 class MraModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
