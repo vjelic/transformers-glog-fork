@@ -1,0 +1,26 @@
+GitPython
+datasets==2.0.0
+black
+parameterized
+accelerate
+numpy==1.24.3
+evaluate
+tensorflow
+timeout-decorator
+sentencepiece
+hf-doc-builder
+datasketch
+faiss-gpu
+optax
+dpu_utils
+nltk
+sacrebleu
+sacremoses
+rouge_score
+seqeval
+numba
+rjieba
+jaxlib==0.4.13
+flax==0.7.0
+jax==0.4.13
+torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
