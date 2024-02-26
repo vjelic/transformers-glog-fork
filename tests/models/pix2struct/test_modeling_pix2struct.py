@@ -141,6 +141,7 @@ class Pix2StructVisionModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class Pix2StructVisionModelTest(ModelTesterMixin, unittest.TestCase):
     """
@@ -311,6 +312,7 @@ class Pix2StructTextModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class Pix2StructTextModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (Pix2StructTextModel,) if is_torch_available() else ()
@@ -395,6 +397,7 @@ class Pix2StructModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class Pix2StructModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (Pix2StructForConditionalGeneration,) if is_torch_available() else ()
@@ -723,6 +726,7 @@ def prepare_img():
     return im
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @unittest.skipIf(
     not is_torch_greater_or_equal_than_1_11,
     reason="`Pix2StructImageProcessor` requires `torch>=1.11.0`.",

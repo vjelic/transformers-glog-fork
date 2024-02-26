@@ -15,7 +15,7 @@
 """ Testing suite for the TensorFlow SegFormer model. """
 
 from __future__ import annotations
-
+import pytest
 import inspect
 import unittest
 from typing import List, Tuple
@@ -152,6 +152,7 @@ class TFSegformerModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFSegformerModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (

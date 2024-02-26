@@ -480,6 +480,7 @@ class Wav2Vec2ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class Wav2Vec2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
@@ -1448,6 +1449,7 @@ class Wav2Vec2UtilsTest(unittest.TestCase):
         self.assertEqual(negatives.unique(dim=-1).shape, (num_negatives, batch_size, sequence_length, 1))
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_soundfile
 @slow

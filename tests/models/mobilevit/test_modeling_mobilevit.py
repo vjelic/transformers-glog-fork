@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch MobileViT model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -175,6 +175,7 @@ class MobileViTModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class MobileViTModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

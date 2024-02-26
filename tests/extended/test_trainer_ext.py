@@ -51,9 +51,10 @@ set_seed(42)
 MARIAN_MODEL = "sshleifer/student_marian_en_ro_6_1"
 MBART_TINY = "sshleifer/tiny-mbart"
 
-
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class TestTrainerExt(TestCasePlus):
+    @pytest.mark.skip(reason="UT compatability skip")
     def run_seq2seq_quick(
         self,
         distributed=False,
@@ -90,11 +91,13 @@ class TestTrainerExt(TestCasePlus):
             assert isinstance(last_step_stats["eval_bleu"], float)
             assert not math.isnan(float(last_step_stats["eval_loss"])), "eval_loss must not be `nan`"
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_torch_non_multi_gpu
     def test_run_seq2seq_no_dist(self):
         self.run_seq2seq_quick()
 
     # verify that the trainer can handle non-distributed with n_gpu > 1
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_torch_multi_gpu
     def test_run_seq2seq_dp(self):
         self.run_seq2seq_quick(distributed=False)

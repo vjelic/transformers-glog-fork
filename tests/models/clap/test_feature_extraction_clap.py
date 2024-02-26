@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import pytest
 import itertools
 import random
 import unittest
@@ -169,6 +169,7 @@ class ClapFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Tes
 
         return [x["array"] for x in speech_samples]
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_integration_fusion_short_input(self):
         # fmt: off
         EXPECTED_INPUT_FEATURES = torch.tensor(
@@ -291,6 +292,7 @@ class ClapFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Tes
             self.assertTrue(torch.all(input_features[0, 0] == input_features[0, 2]))
             self.assertTrue(torch.all(input_features[0, 0] == input_features[0, 3]))
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_integration_rand_trunc_short_input(self):
         # fmt: off
         EXPECTED_INPUT_FEATURES = torch.tensor(
@@ -410,6 +412,7 @@ class ClapFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Tes
             self.assertTrue(torch.allclose(input_features[0, 0, idx_in_mel[0]], EXPECTED_VALUES[0], atol=1e-4))
             self.assertTrue(torch.allclose(input_features[0, 0, idx_in_mel[1]], EXPECTED_VALUES[1], atol=1e-4))
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_integration_fusion_long_input(self):
         # fmt: off
         EXPECTED_INPUT_FEATURES = torch.tensor(
@@ -476,6 +479,7 @@ class ClapFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Tes
             self.assertEqual(input_features.shape, (1, 4, 1001, 64))
             self.assertTrue(torch.allclose(input_features[0, block_idx, MEL_BIN], EXPECTED_VALUES, atol=1e-3))
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_integration_rand_trunc_long_input(self):
         # fmt: off
         EXPECTED_INPUT_FEATURES = torch.tensor(

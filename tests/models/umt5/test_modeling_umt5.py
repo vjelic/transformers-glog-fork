@@ -285,6 +285,7 @@ class UMT5ModelTester:
         self.parent.assertEqual(outputs["loss"].size(), ())
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class UMT5ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (

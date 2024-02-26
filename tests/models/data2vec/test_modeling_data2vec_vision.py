@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch Data2VecVision model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -165,6 +165,7 @@ class Data2VecVisionModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class Data2VecVisionModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

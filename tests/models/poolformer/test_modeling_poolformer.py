@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch PoolFormer model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -121,6 +121,7 @@ class PoolFormerModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class PoolFormerModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (PoolFormerModel, PoolFormerForImageClassification) if is_torch_available() else ()

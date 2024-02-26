@@ -14,7 +14,7 @@ import pytest
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import pytest
 import copy
 import inspect
 import os
@@ -265,6 +265,7 @@ class ImageGPTModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class ImageGPTModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (

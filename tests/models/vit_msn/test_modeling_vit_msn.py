@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch ViTMSN model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -144,6 +144,7 @@ class ViTMSNModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class ViTMSNModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

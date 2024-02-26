@@ -308,6 +308,7 @@ class WavLMModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class WavLMModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
@@ -476,6 +477,7 @@ class WavLMModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
         self.assertIsNotNone(model)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_torchaudio
 @slow

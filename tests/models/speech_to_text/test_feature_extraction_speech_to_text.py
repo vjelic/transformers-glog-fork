@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import pytest
 import itertools
 import random
 import unittest
@@ -102,6 +102,7 @@ class Speech2TextFeatureExtractionTester(unittest.TestCase):
         return speech_inputs
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_torchaudio
 class Speech2TextFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.TestCase):

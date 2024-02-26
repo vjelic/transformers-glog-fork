@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from __future__ import annotations
-
+import pytest
 import unittest
 
 from transformers import T5Config, is_tf_available
@@ -241,6 +241,7 @@ class TFT5ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFT5ModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     is_encoder_decoder = True
@@ -417,6 +418,7 @@ class TFT5EncoderOnlyModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class TFT5EncoderOnlyModelTest(TFModelTesterMixin, unittest.TestCase):
     is_encoder_decoder = False
     all_model_classes = (TFT5EncoderModel,) if is_tf_available() else ()

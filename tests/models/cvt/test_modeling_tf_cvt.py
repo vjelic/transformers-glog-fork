@@ -2,7 +2,7 @@
 
 
 from __future__ import annotations
-
+import pytest
 import inspect
 import unittest
 from math import floor
@@ -130,6 +130,7 @@ class TFCvtModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFCvtModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

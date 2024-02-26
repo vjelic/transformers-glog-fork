@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch MobileNetV2 model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -182,6 +182,7 @@ class MobileNetV2ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class MobileNetV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

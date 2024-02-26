@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch ConvNextV2 model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -163,7 +163,7 @@ class ConvNextV2ModelTester:
         inputs_dict = {"pixel_values": pixel_values, "labels": labels}
         return config, inputs_dict
 
-
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class ConvNextV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

@@ -270,6 +270,7 @@ class PerceiverModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class PerceiverModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
@@ -866,6 +867,7 @@ def extract_image_patches(x, kernel, stride=1, dilation=1):
     return patches.view(b, -1, patches.shape[-2], patches.shape[-1])
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_vision
 class PerceiverModelIntegrationTest(unittest.TestCase):

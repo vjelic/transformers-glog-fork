@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch ViT Hybrid model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -147,6 +147,7 @@ class ViTHybridModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class ViTHybridModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

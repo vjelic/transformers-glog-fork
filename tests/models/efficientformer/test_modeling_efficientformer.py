@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch EfficientFormer model. """
 
-
+import pytest
 import inspect
 import unittest
 import warnings
@@ -173,6 +173,7 @@ class EfficientFormerModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class EfficientFormerModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

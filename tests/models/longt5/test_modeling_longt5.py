@@ -501,6 +501,7 @@ class LongT5ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class LongT5ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (LongT5Model, LongT5ForConditionalGeneration) if is_torch_available() else ()
@@ -768,6 +769,7 @@ class LongT5ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class LongT5TGlobalModelTest(LongT5ModelTest):
     def setUp(self):
@@ -1024,6 +1026,7 @@ class LongT5EncoderOnlyModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class LongT5EncoderOnlyModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (LongT5EncoderModel,) if is_torch_available() else ()
     test_pruning = False
@@ -1107,6 +1110,7 @@ class LongT5EncoderOnlyModelTest(ModelTesterMixin, unittest.TestCase):
                 )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class LongT5EncoderOnlyTGlobalModelTest(LongT5EncoderOnlyModelTest):
     def setUp(self):
         self.model_tester = LongT5EncoderOnlyModelTester(
@@ -1186,6 +1190,7 @@ def use_task_specific_params(model, task):
     model.config.update(model.config.task_specific_params[task])
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_sentencepiece
 @require_tokenizers

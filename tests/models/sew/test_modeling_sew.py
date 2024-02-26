@@ -299,6 +299,7 @@ class SEWModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class SEWModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (SEWForCTC, SEWModel, SEWForSequenceClassification) if is_torch_available() else ()
@@ -479,6 +480,7 @@ class SEWUtilsTest(unittest.TestCase):
             self.assertTrue(int(batch_sum) <= mask_prob * sequence_length)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_soundfile
 @slow

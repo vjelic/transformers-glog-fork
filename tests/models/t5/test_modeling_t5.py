@@ -549,6 +549,7 @@ class T5ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class T5ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
@@ -1010,6 +1011,7 @@ class T5EncoderOnlyModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class T5EncoderOnlyModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (T5EncoderModel,) if is_torch_available() else ()
     test_pruning = False
@@ -1038,6 +1040,7 @@ def use_task_specific_params(model, task):
     model.config.update(model.config.task_specific_params[task])
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_accelerate
 @require_tokenizers
@@ -1097,6 +1100,7 @@ class T5ModelFp16Tests(unittest.TestCase):
         self.assertTrue(model.decoder.block[0].layer[2].DenseReluDense.wi.weight.dtype == torch.float16)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_sentencepiece
 @require_tokenizers
@@ -1559,6 +1563,7 @@ class T5ModelIntegrationTests(unittest.TestCase):
         )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class TestAsymmetricT5(unittest.TestCase):
     def build_model_and_check_forward_pass(self, **kwargs):

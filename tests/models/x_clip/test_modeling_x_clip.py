@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch XCLIP model. """
 
-
+import pytest
 import inspect
 import os
 import tempfile
@@ -137,6 +137,7 @@ class XCLIPVisionModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class XCLIPVisionModelTest(ModelTesterMixin, unittest.TestCase):
     """

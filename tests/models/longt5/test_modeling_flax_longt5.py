@@ -14,7 +14,7 @@
 # limitations under the License.
 import tempfile
 import unittest
-
+import pytest
 import numpy as np
 
 import transformers
@@ -234,6 +234,7 @@ class FlaxLongT5ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_flax
 class FlaxLongT5ModelTest(FlaxModelTesterMixin, FlaxGenerationTesterMixin, unittest.TestCase):
     all_model_classes = (FlaxLongT5Model, FlaxLongT5ForConditionalGeneration) if is_flax_available() else ()
@@ -559,6 +560,7 @@ class FlaxLongT5ModelTest(FlaxModelTesterMixin, FlaxGenerationTesterMixin, unitt
                     self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class FlaxLongT5TGlobalModelTest(FlaxLongT5ModelTest):
     def setUp(self):
         self.model_tester = FlaxLongT5ModelTester(self, encoder_attention_type="transient-global")

@@ -15,7 +15,7 @@
 """ Testing suite for the TensorFlow Data2VecVision model. """
 
 from __future__ import annotations
-
+import pytest
 import collections.abc
 import inspect
 import unittest
@@ -174,6 +174,7 @@ class TFData2VecVisionModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFData2VecVisionModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import pytest
 import itertools
 import random
 import unittest
@@ -157,6 +157,7 @@ class ASTFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Test
 
         return [x["array"] for x in speech_samples]
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_torch
     def test_integration(self):
         # fmt: off

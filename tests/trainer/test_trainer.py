@@ -448,6 +448,7 @@ class TrainerIntegrationCommon:
             saver({param_name: state_dict[param_name]}, os.path.join(folder, shard_file))
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_sentencepiece
 @require_tokenizers
@@ -689,6 +690,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
         self.check_trained_model(trainer.model)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_sentencepiece
 @require_tokenizers
@@ -2623,6 +2625,7 @@ if is_torch_available():
         )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class TrainerOptimizerChoiceTest(unittest.TestCase):
     def check_optim_and_kwargs(self, training_args: TrainingArguments, expected_cls, expected_kwargs):

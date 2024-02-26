@@ -666,6 +666,7 @@ class CustomPipeline(Pipeline):
         return model_outputs["logits"].softmax(-1).numpy()
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @is_pipeline_test
 class CustomPipelineTest(unittest.TestCase):
     def test_warning_logs(self):

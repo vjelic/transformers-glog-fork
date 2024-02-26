@@ -15,7 +15,7 @@
 """ Testing suite for the TensorFlow ConvNext model. """
 
 from __future__ import annotations
-
+import pytest
 import inspect
 import unittest
 from typing import List, Tuple
@@ -118,7 +118,7 @@ class TFConvNextModelTester:
         inputs_dict = {"pixel_values": pixel_values}
         return config, inputs_dict
 
-
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFConvNextModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

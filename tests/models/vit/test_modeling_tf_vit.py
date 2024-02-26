@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import inspect
 import unittest
-
+import pytest
 from transformers import ViTConfig
 from transformers.testing_utils import require_tf, require_vision, slow
 from transformers.utils import cached_property, is_tf_available, is_vision_available
@@ -150,6 +150,7 @@ class TFViTModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFViTModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

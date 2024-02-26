@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch RegNet model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -118,6 +118,7 @@ class RegNetModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class RegNetModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

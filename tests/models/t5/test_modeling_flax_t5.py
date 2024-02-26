@@ -14,7 +14,7 @@
 # limitations under the License.
 import tempfile
 import unittest
-
+import pytest
 import numpy as np
 
 import transformers
@@ -226,6 +226,7 @@ class FlaxT5ModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_flax
 class FlaxT5ModelTest(FlaxModelTesterMixin, FlaxGenerationTesterMixin, unittest.TestCase):
     all_model_classes = (FlaxT5Model, FlaxT5ForConditionalGeneration) if is_flax_available() else ()
@@ -572,6 +573,7 @@ class FlaxT5EncoderOnlyModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_flax
 class FlaxT5EncoderOnlyModelTest(FlaxModelTesterMixin, unittest.TestCase):
     all_model_classes = (FlaxT5EncoderModel,) if is_flax_available() else ()

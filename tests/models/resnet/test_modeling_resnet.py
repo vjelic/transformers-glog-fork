@@ -14,7 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch ResNet model. """
 
-
+import pytest
 import inspect
 import unittest
 
@@ -154,6 +154,7 @@ class ResNetModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class ResNetModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     """

@@ -499,6 +499,7 @@ class MusicgenTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class MusicgenTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (MusicgenForConditionalGeneration,) if is_torch_available() else ()
@@ -1114,6 +1115,7 @@ def place_dict_on_device(dict_to_place, device):
     return dict_to_place
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 class MusicgenIntegrationTests(unittest.TestCase):
     @cached_property

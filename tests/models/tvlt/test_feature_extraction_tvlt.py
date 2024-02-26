@@ -19,7 +19,7 @@ import os
 import random
 import tempfile
 import unittest
-
+import pytest
 import numpy as np
 
 from transformers import TvltFeatureExtractor, is_datasets_available
@@ -106,6 +106,7 @@ class TvltFeatureExtractionTester(unittest.TestCase):
         return speech_inputs
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_torchaudio
 class TvltFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.TestCase):

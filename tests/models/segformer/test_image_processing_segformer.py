@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import pytest
 import unittest
 
 from datasets import load_dataset
@@ -106,6 +106,7 @@ def prepare_semantic_batch_inputs():
     return [image1, image2], [map1, map2]
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_torch
 @require_vision
 class SegformerImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):

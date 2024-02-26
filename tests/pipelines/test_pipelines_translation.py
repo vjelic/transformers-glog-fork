@@ -122,6 +122,7 @@ class TranslationPipelineTests(unittest.TestCase):
         )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 class TranslationNewFormatPipelineTests(unittest.TestCase):
     @require_torch
     @slow

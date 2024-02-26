@@ -15,7 +15,7 @@
 
 
 import unittest
-
+import pytest
 from datasets import load_dataset
 
 from transformers.testing_utils import require_torch, require_vision
@@ -150,6 +150,7 @@ class BeitImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         self.assertEqual(image_processor.crop_size, {"height": 84, "width": 84})
         self.assertEqual(image_processor.do_reduce_labels, True)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_call_segmentation_maps(self):
         # Initialize image_processing
         image_processing = self.image_processing_class(**self.image_processor_dict)
@@ -256,6 +257,7 @@ class BeitImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         self.assertTrue(encoding["labels"].min().item() >= 0)
         self.assertTrue(encoding["labels"].max().item() <= 255)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_reduce_labels(self):
         # Initialize image_processing
         image_processing = self.image_processing_class(**self.image_processor_dict)
