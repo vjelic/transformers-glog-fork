@@ -119,7 +119,7 @@ if is_accelerate_available():
 
 
 if is_pytest_available():
-    from _pytest.doctest import (
+    from pytest.doctest import (
         Module,
         _get_checker,
         _get_continue_on_failure,
@@ -129,7 +129,7 @@ if is_pytest_available():
         get_optionflags,
         import_path,
     )
-    from _pytest.outcomes import skip
+    from pytest.outcomes import skip
     from pytest import DoctestItem
 else:
     Module = object
