@@ -20,7 +20,6 @@ import sys
 import warnings
 from os.path import abspath, dirname, join
 
-import _pytest
 import pytest
 
 from transformers.testing_utils import HfDoctestModule, HfDocTestParser
@@ -127,5 +126,5 @@ class CustomOutputChecker(OutputChecker):
 
 
 doctest.OutputChecker = CustomOutputChecker
-_pytest.doctest.DoctestModule = HfDoctestModule
+pytest.doctest.DoctestModule = HfDoctestModule
 doctest.DocTestParser = HfDocTestParser
