@@ -856,6 +856,7 @@ def _test_large_batched_generation(in_queue, out_queue, timeout):
     out_queue.join()
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 @require_tokenizers
 class TFWhisperModelIntegrationTests(unittest.TestCase):

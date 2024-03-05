@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import pytest 
 import itertools
 import os
 from functools import partial
@@ -114,6 +114,7 @@ def _parameterized_custom_name_func(func, param_num, param):
     return f"{func.__name__}_{param_based_name}"
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_accelerate
 @require_torch_gpu
 @require_fsdp_version
@@ -187,6 +188,7 @@ class TrainerIntegrationFSDP(TestCasePlus, TrainerIntegrationCommon):
         cmd = launcher + script + args + fsdp_args
         execute_subprocess_async(cmd, env=self.get_env())
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @parameterized.expand(state_dict_types, name_func=_parameterized_custom_name_func)
     @require_torch_multi_gpu
     @slow

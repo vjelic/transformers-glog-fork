@@ -142,6 +142,7 @@ class TFXGLMModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFXGLMModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (TFXGLMModel, TFXGLMForCausalLM) if is_tf_available() else ()

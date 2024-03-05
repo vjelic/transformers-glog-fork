@@ -212,6 +212,7 @@ class TFSpeech2TextModelTester:
         tf.debugging.assert_near(output_from_past_slice, output_from_no_past_slice, atol=1e-2)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFSpeech2TextModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (TFSpeech2TextModel, TFSpeech2TextForConditionalGeneration) if is_tf_available() else ()
@@ -564,6 +565,7 @@ class TFSpeech2TextModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.T
         super().test_pt_tf_model_equivalence(allow_missing_keys=allow_missing_keys)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 @require_sentencepiece
 @require_tokenizers

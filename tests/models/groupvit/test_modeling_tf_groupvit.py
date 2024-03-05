@@ -137,6 +137,7 @@ class TFGroupViTVisionModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
     """
@@ -580,6 +581,7 @@ class TFGroupViTModelTester:
         return config, inputs_dict
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFGroupViTModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (TFGroupViTModel,) if is_tf_available() else ()

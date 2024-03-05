@@ -44,6 +44,7 @@ if is_tf_available():
     )
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFMobileBertModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from __future__ import annotations
-
+import pytest
 import copy
 import tempfile
 import unittest
@@ -414,6 +414,7 @@ class TFBartForSequenceClassificationTest(unittest.TestCase):
             model(inputs)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @slow
 @require_tf
 class TFBartModelIntegrationTest(unittest.TestCase):

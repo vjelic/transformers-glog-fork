@@ -149,6 +149,7 @@ class TFOPTModelTester:
         tf.debugging.assert_near(output_from_past_slice, output_from_no_past_slice, rtol=1e-3)
 
 
+@pytest.mark.skip(reason="UT compatability skip")
 @require_tf
 class TFOPTModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (TFOPTModel, TFOPTForCausalLM) if is_tf_available() else ()

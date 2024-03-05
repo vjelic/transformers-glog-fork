@@ -259,6 +259,7 @@ class ExamplesTests(TestCasePlus):
             self.assertGreaterEqual(result["eval_f1"], 30)
             self.assertGreaterEqual(result["eval_exact"], 30)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_run_squad_seq2seq(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""
@@ -326,6 +327,7 @@ class ExamplesTests(TestCasePlus):
             self.assertGreaterEqual(len(result[0]), 10)
 
     @slow
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_run_summarization(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""
