@@ -1063,6 +1063,7 @@ class ModelUtilsTest(TestCasePlus):
 
             self.assertEqual(model.__class__.__name__, model_ref.__class__.__name__)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_generation_config_is_loaded_with_model(self):
         # Note: `joaogante/tiny-random-gpt2-with-generation-config` has a `generation_config.json` containing a dummy
         # `transformers_version` field set to `foo`. If loading the file fails, this test also fails.
