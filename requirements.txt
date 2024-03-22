@@ -1,11 +1,9 @@
 GitPython
-datasets==2.15.0
 black
 parameterized
 accelerate
 numpy==1.24.3
 evaluate
-tensorflow==2.15.0
 timeout-decorator
 sentencepiece
 hf-doc-builder
@@ -21,7 +19,8 @@ seqeval
 numba
 rjieba
 pytest-xdist
+datasets==2.15.0
 jaxlib==0.4.13
 flax==0.7.0
 jax==0.4.13
-torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+tensorflow==2.15.0
