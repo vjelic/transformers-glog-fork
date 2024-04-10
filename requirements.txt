@@ -24,3 +24,4 @@ jaxlib==0.4.13
 flax==0.7.0
 jax==0.4.13
 tensorflow==2.15.0
+scipy==1.12
