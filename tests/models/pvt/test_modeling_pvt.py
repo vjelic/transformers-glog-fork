@@ -14,6 +14,7 @@
 # limitations under the License.
 """ Testing suite for the PyTorch Pvt model. """
 
+
 import pytest
 import inspect
 import unittest
@@ -23,7 +24,8 @@ from transformers.models.auto import get_values
 from transformers.testing_utils import (
     require_accelerate,
     require_torch,
-    require_torch_gpu,
+    require_torch_accelerator,
+    require_torch_fp16,
     slow,
     torch_device,
 )
@@ -253,18 +255,6 @@ class PvtModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
             loss = model(**inputs).loss
             loss.backward()
 
-    def test_forward_signature(self):
-        config, _ = self.model_tester.prepare_config_and_inputs_for_common()
-
-        for model_class in self.all_model_classes:
-            model = model_class(config)
-            signature = inspect.signature(model.forward)
-            # signature.parameters is an OrderedDict => so arg_names order is deterministic
-            arg_names = [*signature.parameters.keys()]
-
-            expected_arg_names = ["pixel_values"]
-            self.assertListEqual(arg_names[:1], expected_arg_names)
-
     @slow
     def test_model_from_pretrained(self):
         for model_name in PVT_PRETRAINED_MODEL_ARCHIVE_LIST[:1]:
@@ -319,7 +309,8 @@ class PvtModelIntegrationTest(unittest.TestCase):
 
     @slow
     @require_accelerate
-    @require_torch_gpu
+    @require_torch_accelerator
+    @require_torch_fp16
     def test_inference_fp16(self):
         r"""
         A small test to make sure that inference work in half precision without any problem.

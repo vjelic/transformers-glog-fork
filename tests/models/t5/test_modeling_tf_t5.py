@@ -315,6 +315,10 @@ class TFT5ModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     def test_keras_save_load(self):
         pass
 
+    @unittest.skip("Does not support conversations.")
+    def test_pipeline_conversational(self):
+        pass
+
 
 class TFT5EncoderOnlyModelTester:
     def __init__(
@@ -608,6 +612,10 @@ class TFT5GenerationIntegrationTests(unittest.TestCase):
 
         expected_output_string = ["Ich liebe es so sehr!", "die Transformatoren sind wirklich erstaunlich"]
         self.assertListEqual(expected_output_string, output_strings)
+
+    @unittest.skip("Does not support conversations.")
+    def test_pipeline_conversational(self):
+        pass
 
 
 @require_tf
