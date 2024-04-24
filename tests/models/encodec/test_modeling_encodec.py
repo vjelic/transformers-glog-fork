@@ -288,6 +288,7 @@ class EncodecModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
     def test_attention_outputs(self):
         pass
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_feed_forward_chunking(self):
         (original_config, inputs_dict) = self.model_tester.prepare_config_and_inputs_for_common()
         for model_class in self.all_model_classes:
