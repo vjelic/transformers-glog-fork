@@ -77,12 +77,9 @@ class ExamplesTestsNoTrainer(TestCasePlus):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmpdir)
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="rocm skip")
-    @mock.patch.dict(os.environ, {"WANDB_MODE": "offline"})
-=======
     @mock.patch.dict(os.environ, {"WANDB_MODE": "offline", "DVCLIVE_TEST": "true"})
->>>>>>> main
     def test_run_glue_no_trainer(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""
@@ -155,12 +152,9 @@ class ExamplesTestsNoTrainer(TestCasePlus):
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "epoch_0")))
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "mlm_no_trainer")))
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="rocm skip")
-    @mock.patch.dict(os.environ, {"WANDB_MODE": "offline"})
-=======
     @mock.patch.dict(os.environ, {"WANDB_MODE": "offline", "DVCLIVE_TEST": "true"})
->>>>>>> main
     def test_run_ner_no_trainer(self):
         # with so little data distributed training needs more epochs to get the score on par with 0/1 gpu
         epochs = 7 if backend_device_count(torch_device) > 1 else 2
@@ -216,12 +210,9 @@ class ExamplesTestsNoTrainer(TestCasePlus):
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "epoch_0")))
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "qa_no_trainer")))
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="rocm skip")
-    @mock.patch.dict(os.environ, {"WANDB_MODE": "offline"})
-=======
     @mock.patch.dict(os.environ, {"WANDB_MODE": "offline", "DVCLIVE_TEST": "true"})
->>>>>>> main
     def test_run_swag_no_trainer(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""
@@ -326,12 +317,9 @@ class ExamplesTestsNoTrainer(TestCasePlus):
         result = get_results(tmp_dir)
         self.assertGreaterEqual(result["eval_overall_accuracy"], 0.10)
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="rocm skip")
-    @mock.patch.dict(os.environ, {"WANDB_MODE": "offline"})
-=======
     @mock.patch.dict(os.environ, {"WANDB_MODE": "offline", "DVCLIVE_TEST": "true"})
->>>>>>> main
     def test_run_image_classification_no_trainer(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
         testargs = f"""

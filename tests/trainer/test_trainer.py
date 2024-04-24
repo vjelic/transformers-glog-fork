@@ -875,9 +875,8 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
             train_output = trainer.train()
             self.assertEqual(train_output.global_step, 10)
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="rocm skip")
-=======
     def test_neftune(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
         tiny_gpt2 = GPT2LMHeadModel(config)
@@ -922,7 +921,7 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
 
         self.assertTrue(torch.allclose(emb1, emb2), "Neftune noise is still applied!")
 
->>>>>>> main
+
     def test_logging_inf_nan_filter(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
         tiny_gpt2 = GPT2LMHeadModel(config)

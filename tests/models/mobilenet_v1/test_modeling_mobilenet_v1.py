@@ -14,12 +14,9 @@
 # limitations under the License.
 """ Testing suite for the PyTorch MobileNetV1 model. """
 
-<<<<<<< HEAD
+
 import pytest
 import inspect
-=======
-
->>>>>>> main
 import unittest
 
 from transformers import MobileNetV1Config

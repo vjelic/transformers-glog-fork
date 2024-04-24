@@ -96,8 +96,9 @@ def load_balancing_loss_func(gate_logits: torch.Tensor, num_experts: torch.Tenso
         return 0
 
     if isinstance(gate_logits, tuple):
+        # cat along the layers?
         compute_device = gate_logits[0].device
-        concatenated_gate_logits = torch.cat([layer_gate.to(compute_device) for layer_gate in gate_logits], dim=0)
+        gate_logits = torch.cat([gate.to(compute_device) for gate in gate_logits], dim=0)
 
     routing_weights = torch.nn.functional.softmax(concatenated_gate_logits, dim=-1)
 

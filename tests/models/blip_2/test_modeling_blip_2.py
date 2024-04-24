@@ -983,14 +983,10 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(generated_text, "it's not a city, it's a beach")
 
-<<<<<<< HEAD
+
     @pytest.mark.skip(reason="UT compatability skip")
-    @require_torch_multi_gpu
-    def test_inference_t5_multi_gpu(self):
-=======
     @require_torch_multi_accelerator
     def test_inference_t5_multi_accelerator(self):
->>>>>>> main
         processor = Blip2Processor.from_pretrained("Salesforce/blip2-flan-t5-xl")
         device_map = device_map = {
             "query_tokens": 0,

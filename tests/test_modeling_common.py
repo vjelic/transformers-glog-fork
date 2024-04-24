@@ -647,16 +647,12 @@ class ModelTesterMixin:
             loss.backward()
             optimizer.step()
 
-<<<<<<< HEAD
-    @mark.skip(reason="UT compatability skip")
-    def test_training_gradient_checkpointing(self):
-=======
             for k, v in model.named_parameters():
                 if v.requires_grad:
                     self.assertTrue(v.grad is not None, f"{k} in {model_class.__name__} has no gradient!")
 
+    @mark.skip(reason="UT compatability skip")
     def test_training(self):
->>>>>>> main
         if not self.model_tester.is_training:
             return
 
@@ -2916,9 +2912,6 @@ class ModelTesterMixin:
                     else:
                         new_model_without_prefix(input_ids)
 
-<<<<<<< HEAD
-    @mark.skip(reason="UT compatability skip")
-=======
     def test_mismatched_shapes_have_properly_initialized_weights(self):
         if not self.test_mismatched_shapes:
             return
@@ -3023,7 +3016,7 @@ class ModelTesterMixin:
                         msg=f"the weight values for `{key}` in `new_model` and `target_model` are not identical",
                     )
 
->>>>>>> main
+    @mark.skip(reason="UT compatability skip")
     def test_model_is_small(self):
         # Just a consistency check to make sure we are not running tests on 80M parameter models.
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
