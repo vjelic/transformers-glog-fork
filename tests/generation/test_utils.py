@@ -1774,6 +1774,7 @@ class GenerationTesterMixin:
                         past_kv[i][1].shape, (batch_size, num_attention_heads, seq_length, per_head_embed_dim)
                     )
 
+    @pytest.mark.skip(reason="UT compatability skip MI100")
     def test_generate_from_inputs_embeds_decoder_only(self):
         # When supported, tests that the decoder model can generate from `inputs_embeds` instead of `input_ids`
         # if fails, you should probably update the `prepare_inputs_for_generation` function

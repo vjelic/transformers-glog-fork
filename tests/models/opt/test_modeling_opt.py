@@ -1,4 +1,3 @@
-import pytest
 # coding=utf-8
 # Copyright 2021, The HuggingFace Inc. team. All rights reserved.
 #
@@ -15,7 +14,7 @@ import pytest
 # limitations under the License.
 """ Testing suite for the PyTorch OPT model. """
 
-
+import pytest
 import copy
 import tempfile
 import unittest

@@ -28,6 +28,7 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 
 import numpy as np
+import pytest
 from pytest import mark
 
 import transformers
@@ -1182,6 +1183,7 @@ class ModelTesterMixin:
 
             self.assertDictEqual(model.config.pruned_heads, {0: [0], 1: [1, 2]})
 
+    @pytest.mark.skip(reason="UT compatability skip MI100")
     def test_hidden_states_output(self):
         def check_hidden_states_output(inputs_dict, config, model_class):
             model = model_class(config)

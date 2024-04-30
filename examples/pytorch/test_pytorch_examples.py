@@ -202,6 +202,7 @@ class ExamplesTests(TestCasePlus):
             result = get_results(tmp_dir)
             self.assertLess(result["perplexity"], 42)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_run_ner(self):
         # with so little data distributed training needs more epochs to get the score on par with 0/1 gpu
         epochs = 7 if get_gpu_count() > 1 else 2

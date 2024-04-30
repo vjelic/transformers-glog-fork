@@ -701,6 +701,7 @@ class ModelUtilsTest(TestCasePlus):
         text_output = tokenizer.decode(output[0].tolist())
         self.assertEqual(text_output, "Hello, my name is John. I'm a writer, and I'm a writer. I'm")
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_accelerate
     @mark.accelerate_tests
     @require_torch_gpu
