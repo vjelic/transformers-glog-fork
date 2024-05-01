@@ -209,7 +209,6 @@ from . import (
     time_series_transformer,
     timesformer,
     timm_backbone,
-    transfo_xl,
     trocr,
     tvlt,
     tvp,
