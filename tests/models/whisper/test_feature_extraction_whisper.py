@@ -108,8 +108,6 @@ class WhisperFeatureExtractionTester(unittest.TestCase):
 
 
 @pytest.mark.skip(reason="UT compatability skip")
-@require_torch
-@require_torchaudio
 class WhisperFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.TestCase):
     feature_extraction_class = WhisperFeatureExtractor
 
