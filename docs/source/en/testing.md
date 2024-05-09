@@ -57,8 +57,6 @@ RUN_SLOW=1 pytest examples/
 
 
 
-
-
 ### Choosing which tests to run
 
 This document goes into many details of how tests can be run. If after reading everything, you need even more details
@@ -184,6 +182,7 @@ pytest -k "test and ada" tests/test_optimization.py
 ### Run `accelerate` tests
 
 Sometimes you need to run `accelerate` tests on your models. For that you can just add `-m accelerate_tests` to your command, if let's say you want to run these tests on `OPT` run:
+
 ```bash
 RUN_SLOW=1 pytest -m accelerate_tests tests/models/opt/test_modeling_opt.py 
 ```
@@ -452,7 +451,7 @@ decorators are used to set the requirements of tests CPU/GPU/TPU-wise:
 - `require_torch_multi_gpu` - as `require_torch` plus requires at least 2 GPUs
 - `require_torch_non_multi_gpu` - as `require_torch` plus requires 0 or 1 GPUs
 - `require_torch_up_to_2_gpus` - as `require_torch` plus requires 0 or 1 or 2 GPUs
-- `require_torch_tpu` - as `require_torch` plus requires at least 1 TPU
+- `require_torch_xla` - as `require_torch` plus requires at least 1 TPU
 
 Let's depict the GPU requirements in the following table:
 
@@ -514,6 +513,7 @@ n_gpu = get_gpu_count()  # works with torch and tf
 ### Testing with a specific PyTorch backend or device
 
 To run the test suite on a specific torch device add `TRANSFORMERS_TEST_DEVICE="$device"` where `$device` is the target backend. For example, to test on CPU only:
+
 ```bash
 TRANSFORMERS_TEST_DEVICE="cpu" pytest tests/utils/test_logging.py
 ```
@@ -521,9 +521,29 @@ TRANSFORMERS_TEST_DEVICE="cpu" pytest tests/utils/test_logging.py
 This variable is useful for testing custom or less common PyTorch backends such as `mps`. It can also be used to achieve the same effect as `CUDA_VISIBLE_DEVICES` by targeting specific GPUs or testing in CPU-only mode.
 
 Certain devices will require an additional import after importing `torch` for the first time. This can be specified using the environment variable `TRANSFORMERS_TEST_BACKEND`:
+
 ```bash
 TRANSFORMERS_TEST_BACKEND="torch_npu" pytest tests/utils/test_logging.py
 ```
+Alternative backends may also require the replacement of device-specific functions. For example `torch.cuda.manual_seed` may need to be replaced with a device-specific seed setter like `torch.npu.manual_seed` to correctly set a random seed on the device. To specify a new backend with backend-specific device functions when running the test suite, create a Python device specification file in the format:
+
+```
+import torch
+import torch_npu
+# !! Further additional imports can be added here !!
+
+# Specify the device name (eg. 'cuda', 'cpu', 'npu')
+DEVICE_NAME = 'npu'
+
+# Specify device-specific backends to dispatch to.
+# If not specified, will fallback to 'default' in 'testing_utils.py`
+MANUAL_SEED_FN = torch.npu.manual_seed
+EMPTY_CACHE_FN = torch.npu.empty_cache
+DEVICE_COUNT_FN = torch.npu.device_count
+```
+This format also allows for specification of any additional imports required. To use this file to replace equivalent methods in the test suite, set the environment variable `TRANSFORMERS_TEST_DEVICE_SPEC` to the path of the spec file.
+
+Currently, only `MANUAL_SEED_FN`, `EMPTY_CACHE_FN` and `DEVICE_COUNT_FN` are supported for device-specific dispatch.
 
 
 ### Distributed training
@@ -879,7 +899,8 @@ or the `xfail` way:
 def test_feature_x():
 ```
 
-- Here is how to skip a test based on some internal check inside the test:
+
+Here's how to skip a test based on internal checks within the test:
 
 ```python
 def test_feature_x():
@@ -955,7 +976,7 @@ Some decorators like `@parameterized` rewrite test names, therefore `@slow` and 
 `@require_*` have to be listed last for them to work correctly. Here is an example of the correct usage:
 
 ```python no-style
-@parameteriz ed.expand(...)
+@parameterized.expand(...)
 @slow
 def test_integration_foo():
 ```
@@ -1291,3 +1312,19 @@ You can vote for this feature and see where it is at these CI-specific threads:
 
 - [Github Actions:](https://github.com/actions/toolkit/issues/399)
 - [CircleCI:](https://ideas.circleci.com/ideas/CCI-I-344)
+
+## DeepSpeed integration
+
+For a PR that involves the DeepSpeed integration, keep in mind our CircleCI PR CI setup doesn't have GPUs. Tests requiring GPUs are run on a different CI nightly. This means if you get a passing CI report in your PR, it doesn’t mean the DeepSpeed tests pass.
+
+To run DeepSpeed tests:
+
+```bash
+RUN_SLOW=1 pytest tests/deepspeed/test_deepspeed.py
+```
+
+Any changes to the modeling or PyTorch examples code requires running the model zoo tests as well.
+
+```bash
+RUN_SLOW=1 pytest tests/deepspeed
+```

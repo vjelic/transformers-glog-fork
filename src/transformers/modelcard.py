@@ -131,8 +131,6 @@ class ModelCard:
             pretrained_model_name_or_path: either:
 
                 - a string, the *model id* of a pretrained model card hosted inside a model repo on huggingface.co.
-                  Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
-                  user or organization name, like `dbmdz/bert-base-german-cased`.
                 - a path to a *directory* containing a model card file saved using the [`~ModelCard.save_pretrained`]
                   method, e.g.: `./my_model_directory/`.
                 - a path or url to a saved model card JSON *file*, e.g.: `./my_model_directory/modelcard.json`.
@@ -163,11 +161,11 @@ class ModelCard:
 
         ```python
         # Download model card from huggingface.co and cache.
-        modelcard = ModelCard.from_pretrained("bert-base-uncased")
+        modelcard = ModelCard.from_pretrained("google-bert/bert-base-uncased")
         # Model card was saved using *save_pretrained('./test/saved_model/')*
         modelcard = ModelCard.from_pretrained("./test/saved_model/")
         modelcard = ModelCard.from_pretrained("./test/saved_model/modelcard.json")
-        modelcard = ModelCard.from_pretrained("bert-base-uncased", output_attentions=True, foo=False)
+        modelcard = ModelCard.from_pretrained("google-bert/bert-base-uncased", output_attentions=True, foo=False)
         ```"""
         cache_dir = kwargs.pop("cache_dir", None)
         proxies = kwargs.pop("proxies", None)
@@ -704,7 +702,7 @@ class TrainingSummary:
 
 def parse_keras_history(logs):
     """
-    Parse the `logs` of either a `tf.keras.History` object returned by `model.fit()` or an accumulated logs `dict`
+    Parse the `logs` of either a `keras.History` object returned by `model.fit()` or an accumulated logs `dict`
     passed to the `PushToHubCallback`. Returns lines and logs compatible with those returned by `parse_log_history`.
     """
     if hasattr(logs, "history"):
@@ -800,14 +798,14 @@ def parse_log_history(log_history):
 
 
 def extract_hyperparameters_from_keras(model):
-    import tensorflow as tf
+    from .modeling_tf_utils import keras
 
     hyperparameters = {}
     if hasattr(model, "optimizer") and model.optimizer is not None:
         hyperparameters["optimizer"] = model.optimizer.get_config()
     else:
         hyperparameters["optimizer"] = None
-    hyperparameters["training_precision"] = tf.keras.mixed_precision.global_policy().name
+    hyperparameters["training_precision"] = keras.mixed_precision.global_policy().name
 
     return hyperparameters
 
@@ -893,13 +891,12 @@ def extract_hyperparameters_from_trainer(trainer):
         hyperparameters["training_steps"] = trainer.args.max_steps
     else:
         hyperparameters["num_epochs"] = trainer.args.num_train_epochs
-    
-    # Note: "use_cuda_amp" was removed in https://github.com/huggingface/transformers/pull/25702#discussion_r1318935474 and is causing issues in upstream. TODO: Re-enable when solution is found. 
-   # if trainer.args.fp16:
-   #     if trainer.use_cuda_amp:
-   #         hyperparameters["mixed_precision_training"] = "Native AMP"
-   #     elif trainer.use_apex:
-   #         hyperparameters["mixed_precision_training"] = f"Apex, opt level {trainer.args.fp16_opt_level}"
+
+    if trainer.args.fp16:
+        if trainer.use_apex:
+            hyperparameters["mixed_precision_training"] = f"Apex, opt level {trainer.args.fp16_opt_level}"
+        else:
+            hyperparameters["mixed_precision_training"] = "Native AMP"
 
     if trainer.args.label_smoothing_factor != 0.0:
         hyperparameters["label_smoothing_factor"] = trainer.args.label_smoothing_factor

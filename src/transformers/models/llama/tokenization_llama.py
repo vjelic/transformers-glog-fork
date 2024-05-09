@@ -71,6 +71,43 @@ class LlamaTokenizer(PreTrainedTokenizer):
     Args:
         vocab_file (`str`):
             Path to the vocabulary file.
+        unk_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<unk>"`):
+            The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
+            token instead.
+        bos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<s>"`):
+            The beginning of sequence token that was used during pretraining. Can be used a sequence classifier token.
+        eos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"</s>"`):
+            The end of sequence token.
+        pad_token (`str` or `tokenizers.AddedToken`, *optional*):
+            A special token used to make arrays of tokens the same size for batching purpose. Will then be ignored by
+            attention mechanisms or loss computation.
+        sp_model_kwargs (`Dict[str, Any]`, `Optional`, *optional*):
+            Will be passed to the `SentencePieceProcessor.__init__()` method. The [Python wrapper for
+            SentencePiece](https://github.com/google/sentencepiece/tree/master/python) can be used, among other things,
+            to set:
+
+            - `enable_sampling`: Enable subword regularization.
+            - `nbest_size`: Sampling parameters for unigram. Invalid for BPE-Dropout.
+
+              - `nbest_size = {0,1}`: No sampling is performed.
+              - `nbest_size > 1`: samples from the nbest_size results.
+              - `nbest_size < 0`: assuming that nbest_size is infinite and samples from the all hypothesis (lattice)
+                using forward-filtering-and-backward-sampling algorithm.
+
+            - `alpha`: Smoothing parameter for unigram sampling, and dropout probability of merge operations for
+              BPE-dropout.
+
+        add_bos_token (`bool`, *optional*, defaults to `True`):
+            Whether or not to add an `bos_token` at the start of sequences.
+        add_eos_token (`bool`, *optional*, defaults to `False`):
+            Whether or not to add an `eos_token` at the end of sequences.
+        clean_up_tokenization_spaces (`bool`, *optional*, defaults to `False`):
+            Whether or not to cleanup spaces after decoding, cleanup consists in removing potential artifacts like
+            extra spaces.
+        use_default_system_prompt (`bool`, *optional*, defaults to `False`):
+            Whether or not the default system prompt for Llama should be used.
+        spaces_between_special_tokens (`bool`, *optional*, defaults to `False`):
+            Whether or not to add spaces between special tokens.
         legacy (`bool`, *optional*):
             Whether or not the `legacy` behavior of the tokenizer should be used. Legacy is before the merge of #24622
             and #25224 which includes fixes to properly handle tokens that appear after special tokens. A simple
@@ -80,7 +117,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
             ```python
             >>> from transformers import T5Tokenizer
 
-            >>> tokenizer = T5Tokenizer.from_pretrained("t5-base", legacy=True)
+            >>> tokenizer = T5Tokenizer.from_pretrained("google-t5/t5-base", legacy=True)
             >>> tokenizer.encode("Hello <extra_id_0>.")
             [8774, 32099, 3, 5, 1]
             ```
@@ -88,11 +125,14 @@ class LlamaTokenizer(PreTrainedTokenizer):
             ```python
             >>> from transformers import T5Tokenizer
 
-            >>> tokenizer = T5Tokenizer.from_pretrained("t5-base", legacy=False)
+            >>> tokenizer = T5Tokenizer.from_pretrained("google-t5/t5-base", legacy=False)
             >>> tokenizer.encode("Hello <extra_id_0>.")  # the extra space `[3]` is no longer here
             [8774, 32099, 5, 1]
             ```
             Checkout the [pull request](https://github.com/huggingface/transformers/pull/24565) for more details.
+        add_prefix_space (`bool`, *optional*, defaults to `True`):
+            Whether or not to add an initial space to the input. This allows to treat the leading word just as any
+            other word.
 
     """
 
@@ -112,23 +152,24 @@ class LlamaTokenizer(PreTrainedTokenizer):
         add_bos_token=True,
         add_eos_token=False,
         clean_up_tokenization_spaces=False,
-        use_default_system_prompt=True,
+        use_default_system_prompt=False,
         spaces_between_special_tokens=False,
         legacy=None,
+        add_prefix_space=True,
         **kwargs,
     ):
         self.sp_model_kwargs = {} if sp_model_kwargs is None else sp_model_kwargs
-        bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
-        eos_token = AddedToken(eos_token, lstrip=False, rstrip=False) if isinstance(eos_token, str) else eos_token
-        unk_token = AddedToken(unk_token, lstrip=False, rstrip=False) if isinstance(unk_token, str) else unk_token
-        pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
+        bos_token = AddedToken(bos_token, normalized=False, special=True) if isinstance(bos_token, str) else bos_token
+        eos_token = AddedToken(eos_token, normalized=False, special=True) if isinstance(eos_token, str) else eos_token
+        unk_token = AddedToken(unk_token, normalized=False, special=True) if isinstance(unk_token, str) else unk_token
+        pad_token = AddedToken(pad_token, normalized=False, special=True) if isinstance(pad_token, str) else pad_token
 
         if legacy is None:
             logger.warning_once(
                 f"You are using the default legacy behaviour of the {self.__class__}. This is"
                 " expected, and simply means that the `legacy` (previous) behavior will be used so nothing changes for you."
                 " If you want to use the new behaviour, set `legacy=False`. This should only be set if you understand what it"
-                " means, and thouroughly read the reason why this was added as explained in"
+                " means, and thoroughly read the reason why this was added as explained in"
                 " https://github.com/huggingface/transformers/pull/24565"
             )
             legacy = True
@@ -139,6 +180,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
         self.add_eos_token = add_eos_token
         self.use_default_system_prompt = use_default_system_prompt
         self.sp_model = self.get_spm_processor(kwargs.pop("from_slow", False))
+        self.add_prefix_space = add_prefix_space
 
         super().__init__(
             bos_token=bos_token,
@@ -152,6 +194,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
             use_default_system_prompt=use_default_system_prompt,
             spaces_between_special_tokens=spaces_between_special_tokens,
             legacy=legacy,
+            add_prefix_space=add_prefix_space,
             **kwargs,
         )
 
@@ -200,7 +243,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
         return vocab
 
     # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.tokenize
-    def tokenize(self, text: "TextInput", add_special_tokens=False, **kwargs) -> List[str]:
+    def tokenize(self, text: "TextInput", **kwargs) -> List[str]:
         """
         Converts a string to a list of tokens. If `self.legacy` is set to `False`, a prefix token is added unless the
         first token is special.
@@ -208,7 +251,11 @@ class LlamaTokenizer(PreTrainedTokenizer):
         if self.legacy or len(text) == 0:
             return super().tokenize(text, **kwargs)
 
-        tokens = super().tokenize(SPIECE_UNDERLINE + text.replace(SPIECE_UNDERLINE, " "), **kwargs)
+        text = text.replace(SPIECE_UNDERLINE, " ")
+        if self.add_prefix_space:
+            text = SPIECE_UNDERLINE + text
+
+        tokens = super().tokenize(text, **kwargs)
 
         if len(tokens) > 1 and tokens[0] == SPIECE_UNDERLINE and tokens[1] in self.all_special_tokens:
             tokens = tokens[1:]
@@ -246,7 +293,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
     def convert_tokens_to_string(self, tokens):
         """Converts a sequence of tokens (string) in a single string."""
         # since we manually add the prefix space, we have to remove it when decoding
-        if tokens[0].startswith(SPIECE_UNDERLINE):
+        if tokens[0].startswith(SPIECE_UNDERLINE) and self.add_prefix_space:
             tokens[0] = tokens[0][1:]
 
         current_sub_tokens = []
@@ -386,10 +433,19 @@ class LlamaTokenizer(PreTrainedTokenizer):
 
         The output should look something like:
 
-        <bos>[INST] B_SYS SystemPrompt E_SYS Prompt [/INST] Answer <eos> <bos>[INST] Prompt [/INST] Answer <eos>
+        <bos>[INST] B_SYS SystemPrompt E_SYS Prompt [/INST] Answer <eos><bos>[INST] Prompt [/INST] Answer <eos>
         <bos>[INST] Prompt [/INST]
-        """
 
+        The reference for this chat template is [this code
+        snippet](https://github.com/facebookresearch/llama/blob/556949fdfb72da27c2f4a40b7f0e4cf0b8153a28/llama/generation.py#L320-L362)
+        in the original repository.
+        """
+        logger.warning_once(
+            "\nNo chat template is defined for this tokenizer - using the default template "
+            f"for the {self.__class__.__name__} class. If the default is not appropriate for "
+            "your model, please set `tokenizer.chat_template` to an appropriate template. "
+            "See https://huggingface.co/docs/transformers/main/chat_templating for more information.\n"
+        )
         template = (
             "{% if messages[0]['role'] == 'system' %}"
             "{% set loop_messages = messages[1:] %}"  # Extract system message if it's present

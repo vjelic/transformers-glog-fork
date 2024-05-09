@@ -87,8 +87,8 @@
       title: 🤗 Tokenizers 라이브러리에서 토크나이저 사용하기
     - local: multilingual
       title: 다국어 모델 추론하기
-    - local: in_translation
-      title: (번역중) Customize text generation strategy
+    - local: generation_strategies
+      title: 텍스트 생성 전략 사용자 정의
     - local: create_a_model
       title: 모델별 API 사용하기
     - local: custom_models
@@ -139,8 +139,8 @@
       title: (번역중) Inference on Specialized Hardware
     - local: perf_hardware
       title: 훈련용 사용자 맞춤형 하드웨어
-    - local: in_translation
-      title: (번역중) Instantiating a big model
+    - local: big_models
+      title: 대형 모델을 인스턴스화
     - local: debugging
       title: 디버깅
     - local: hpo_train

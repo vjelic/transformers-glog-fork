@@ -156,6 +156,6 @@ class FlaxRobertaModelTest(FlaxModelTesterMixin, unittest.TestCase):
     @pytest.mark.skip(reason="UT compatibility skip")
     def test_model_from_pretrained(self):
         for model_class_name in self.all_model_classes:
-            model = model_class_name.from_pretrained("roberta-base", from_pt=True)
+            model = model_class_name.from_pretrained("FacebookAI/roberta-base", from_pt=True)
             outputs = model(np.ones((1, 1)))
             self.assertIsNotNone(outputs)
