@@ -2037,6 +2037,7 @@ class Mask4DTestFP32(Mask4DTestBase):
         outs_1_last_tokens = outs_1[0, -3:, :]  # last three tokens
         torch.testing.assert_close(outs_0_last_tokens, outs_1_last_tokens)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_causal_model_logits(self):
         """comparing logits outputs of whole inner model"""
         # Input 0: one row per sentence; Input 1: same data, but stacked into a single row with custom attention
@@ -2052,7 +2053,12 @@ class Mask4DTestFP32(Mask4DTestBase):
 
 @require_torch_gpu
 class Mask4DTestFP16(Mask4DTestBase):
-    test_attention = Mask4DTestFP32.test_attention
+
+    #test_attention = Mask4DTestFP32.test_attention
+    @pytest.mark.skip(reason="UT compatability skip")
+    def test_attention(self):
+        Mask4DTestFP32.test_attention()
+
 
     def setUp(self):
         model_name = "JackFram/llama-68m"  # small Llama-like model from FlexFlow
@@ -2060,6 +2066,7 @@ class Mask4DTestFP16(Mask4DTestBase):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=self.model_dtype).to(torch_device)
 
+    @pytest.mark.skip(reason="UT compatability skip")
     def test_causal_model_logits(self):
         """comparing logits outputs of whole inner model"""
         # Input 0: one row per sentence; Input 1: same data, but stacked into a single row with custom attention

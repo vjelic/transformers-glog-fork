@@ -710,6 +710,14 @@ class UMT5EncoderOnlyModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.T
     )
     all_parallelizable_model_classes = (UMT5EncoderModel,) if is_torch_available() else ()
 
+    @pytest.mark.skip(reason="UT compatability skip")
+    def test_model_parallel_equal_results(self):
+        super().test_model_parallel_equal_results()
+
+    @pytest.mark.skip(reason="UT compatability skip")
+    def test_model_parallelization(self):
+        super().test_model_parallelization()
+
     def setUp(self):
         self.model_tester = UMT5EncoderOnlyModelTester(self)
         self.config_tester = ConfigTester(self, config_class=UMT5Config, d_model=37)

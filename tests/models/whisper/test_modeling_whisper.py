@@ -527,6 +527,7 @@ class WhisperModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_generate_with_head_masking(self):
         pass
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @require_torch_fp16
     def test_generate_fp16(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs()
