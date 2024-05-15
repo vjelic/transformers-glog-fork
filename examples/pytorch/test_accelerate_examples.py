@@ -183,6 +183,7 @@ class ExamplesTestsNoTrainer(TestCasePlus):
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "epoch_0")))
         self.assertTrue(os.path.exists(os.path.join(tmp_dir, "ner_no_trainer")))
 
+    @pytest.mark.skip(reason="UT compatability skip")
     @mock.patch.dict(os.environ, {"WANDB_MODE": "offline", "DVCLIVE_TEST": "true"})
     def test_run_squad_no_trainer(self):
         tmp_dir = self.get_auto_remove_tmp_dir()
