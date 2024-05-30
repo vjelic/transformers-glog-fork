@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Chinese-CLIP model configuration"""
+"""Chinese-CLIP model configuration"""
 
 import os
 from collections import OrderedDict
@@ -29,12 +29,6 @@ from ...utils import logging
 
 
 logger = logging.get_logger(__name__)
-
-CHINESE_CLIP_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "OFA-Sys/chinese-clip-vit-base-patch16": (
-        "https://huggingface.co/OFA-Sys/chinese-clip-vit-base-patch16/resolve/main/config.json"
-    ),
-}
 
 
 class ChineseCLIPTextConfig(PretrainedConfig):
@@ -171,8 +165,7 @@ class ChineseCLIPVisionConfig(PretrainedConfig):
     This is the configuration class to store the configuration of a [`ChineseCLIPModel`]. It is used to instantiate an
     ChineseCLIP model according to the specified arguments, defining the model architecture. Instantiating a
     configuration with the defaults will yield a similar configuration to that of the ChineseCLIP
-    [OFA-Sys/chinese-clip-vit-base-patch16](https:
-        //huggingface.co/OFA-Sys/chinese-clip-vit-base-patch16) architecture.
+    [OFA-Sys/chinese-clip-vit-base-patch16](https://huggingface.co/OFA-Sys/chinese-clip-vit-base-patch16) architecture.
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.

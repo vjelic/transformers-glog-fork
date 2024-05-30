@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch VITS model."""
+"""PyTorch VITS model."""
 
 import math
 from dataclasses import dataclass
@@ -40,13 +40,6 @@ logger = logging.get_logger(__name__)
 
 # General docstring
 _CONFIG_FOR_DOC = "VitsConfig"
-
-
-VITS_PRETRAINED_MODEL_ARCHIVE_LIST = [
-    "facebook/mms-tts-eng",
-    # See all VITS models at https://huggingface.co/models?filter=vits
-    # and all MMS models at https://huggingface.co/models?sort=trending&search=facebook%2Fmms-tts
-]
 
 
 @dataclass
@@ -1022,7 +1015,7 @@ class VitsAttention(nn.Module):
 
         # Pad along column
         x = nn.functional.pad(x, [0, length - 1, 0, 0, 0, 0])
-        x_flat = x.view([batch_heads, length**2 + length * (length - 1)])
+        x_flat = x.view([batch_heads, length * (2 * length - 1)])
 
         # Add 0's in the beginning that will skew the elements after reshape
         x_flat = nn.functional.pad(x_flat, [length, 0, 0, 0])

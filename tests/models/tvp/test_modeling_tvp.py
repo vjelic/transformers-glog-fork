@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Testing suite for the PyTorch TVP model. """
-
+"""Testing suite for the PyTorch TVP model."""
 
 import unittest
 
@@ -124,6 +123,7 @@ class TVPModelTester:
         )
         return TvpConfig(
             backbone_config=resnet_config,
+            backbone=None,
             alpha=self.alpha,
             beta=self.beta,
             visual_prompter_type=self.visual_prompter_type,

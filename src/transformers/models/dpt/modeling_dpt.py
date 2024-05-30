@@ -12,13 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch DPT (Dense Prediction Transformers) model.
+"""PyTorch DPT (Dense Prediction Transformers) model.
 
 This implementation is heavily inspired by OpenMMLab's implementation, found here:
 https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/models/decode_heads/dpt_head.py.
 
 """
-
 
 import collections.abc
 import math
@@ -41,7 +40,7 @@ from ...modeling_outputs import BaseModelOutput, DepthEstimatorOutput, SemanticS
 from ...modeling_utils import PreTrainedModel
 from ...pytorch_utils import find_pruneable_heads_and_indices, prune_linear_layer
 from ...utils import ModelOutput, logging
-from ..auto import AutoBackbone
+from ...utils.backbone_utils import load_backbone
 from .configuration_dpt import DPTConfig
 
 
@@ -53,13 +52,6 @@ _CONFIG_FOR_DOC = "DPTConfig"
 # Base docstring
 _CHECKPOINT_FOR_DOC = "Intel/dpt-large"
 _EXPECTED_OUTPUT_SHAPE = [1, 577, 1024]
-
-
-DPT_PRETRAINED_MODEL_ARCHIVE_LIST = [
-    "Intel/dpt-large",
-    "Intel/dpt-hybrid-midas",
-    # See all DPT models at https://huggingface.co/models?filter=dpt
-]
 
 
 @dataclass
@@ -76,7 +68,7 @@ class BaseModelOutputWithIntermediateActivations(ModelOutput):
     """
 
     last_hidden_states: torch.FloatTensor = None
-    intermediate_activations: Optional[Tuple[torch.FloatTensor]] = None
+    intermediate_activations: Optional[Tuple[torch.FloatTensor, ...]] = None
 
 
 @dataclass
@@ -110,9 +102,9 @@ class BaseModelOutputWithPoolingAndIntermediateActivations(ModelOutput):
 
     last_hidden_state: torch.FloatTensor = None
     pooler_output: torch.FloatTensor = None
-    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
-    attentions: Optional[Tuple[torch.FloatTensor]] = None
-    intermediate_activations: Optional[Tuple[torch.FloatTensor]] = None
+    hidden_states: Optional[Tuple[torch.FloatTensor, ...]] = None
+    attentions: Optional[Tuple[torch.FloatTensor, ...]] = None
+    intermediate_activations: Optional[Tuple[torch.FloatTensor, ...]] = None
 
 
 class DPTViTHybridEmbeddings(nn.Module):
@@ -131,12 +123,10 @@ class DPTViTHybridEmbeddings(nn.Module):
         patch_size = patch_size if isinstance(patch_size, collections.abc.Iterable) else (patch_size, patch_size)
         num_patches = (image_size[1] // patch_size[1]) * (image_size[0] // patch_size[0])
 
-        self.backbone = AutoBackbone.from_config(config.backbone_config)
+        self.backbone = load_backbone(config)
         feature_dim = self.backbone.channels[-1]
-        if len(config.backbone_config.out_features) != 3:
-            raise ValueError(
-                f"Expected backbone to have 3 output features, got {len(config.backbone_config.out_features)}"
-            )
+        if len(self.backbone.channels) != 3:
+            raise ValueError(f"Expected backbone to have 3 output features, got {len(self.backbone.channels)}")
         self.residual_feature_map_index = [0, 1]  # Always take the output of the first and second backbone stage
 
         if feature_size is None:
@@ -1081,10 +1071,10 @@ class DPTForDepthEstimation(DPTPreTrainedModel):
         super().__init__(config)
 
         self.backbone = None
-        if config.backbone_config is not None and config.is_hybrid is False:
-            self.backbone = AutoBackbone.from_config(config.backbone_config)
-        else:
+        if config.is_hybrid or config.backbone_config is None:
             self.dpt = DPTModel(config, add_pooling_layer=False)
+        else:
+            self.backbone = load_backbone(config)
 
         # Neck
         self.neck = DPTNeck(config)

@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Testing suite for the PyTorch OneFormer model. """
+"""Testing suite for the PyTorch OneFormer model."""
 
 import copy
 import inspect
@@ -133,6 +133,7 @@ class OneFormerModelTester:
         config.backbone_config.hidden_size = 16
         config.backbone_config.num_channels = self.num_channels
         config.backbone_config.num_heads = [1, 1, 2, 2]
+        config.backbone = None
 
         config.hidden_dim = self.hidden_dim
         config.mask_dim = self.hidden_dim

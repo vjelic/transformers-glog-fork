@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Testing suite for the PyTorch UperNet framework. """
-
+"""Testing suite for the PyTorch UperNet framework."""
 
 import unittest
 
@@ -32,7 +31,6 @@ if is_torch_available():
     import torch
 
     from transformers import UperNetForSemanticSegmentation
-    from transformers.models.upernet.modeling_upernet import UPERNET_PRETRAINED_MODEL_ARCHIVE_LIST
 
 
 if is_vision_available():
@@ -105,6 +103,7 @@ class UperNetModelTester:
     def get_config(self):
         return UperNetConfig(
             backbone_config=self.get_backbone_config(),
+            backbone=None,
             hidden_size=64,
             pool_scales=[1, 2, 3, 6],
             use_auxiliary_head=True,
@@ -247,9 +246,9 @@ class UperNetModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
 
     @slow
     def test_model_from_pretrained(self):
-        for model_name in UPERNET_PRETRAINED_MODEL_ARCHIVE_LIST[:1]:
-            model = UperNetForSemanticSegmentation.from_pretrained(model_name)
-            self.assertIsNotNone(model)
+        model_name = "openmmlab/upernet-convnext-tiny"
+        model = UperNetForSemanticSegmentation.from_pretrained(model_name)
+        self.assertIsNotNone(model)
 
 
 # We will verify our results on an image of ADE20k
