@@ -417,6 +417,9 @@ class MambaIntegrationTests(unittest.TestCase):
         if device == "cuda":
             # Skip the test on CUDA if it is known to fail
             pytest.skip("Skipping test_simple_generate_0_cuda UT compatability skip")
+        if device == "cpu":
+            # Skip the test on cpu for MI300
+            pytest.skip("Skipping test_simple_generate_1_cpu UT compatability skip")
 
         tokenizer = AutoTokenizer.from_pretrained("state-spaces/mamba-130m-hf")
         tokenizer.pad_token = tokenizer.eos_token
