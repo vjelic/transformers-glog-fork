@@ -182,6 +182,7 @@ if is_pytest_available():
     from _pytest.outcomes import skip
     from _pytest.pathlib import import_path
     from pytest import DoctestItem
+    import pytest
 else:
     Module = object
     DoctestItem = object
@@ -199,6 +200,8 @@ ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
 # Not critical, only usable on the sandboxed CI instance.
 TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
 
+
+
 if is_torch_available():
     import torch
 
@@ -211,7 +214,6 @@ else:
     IS_XPU_SYSTEM = False
 
 logger = transformers_logging.get_logger(__name__)
-
 
 def parse_flag_from_env(key, default=False):
     try:
@@ -248,6 +250,61 @@ _run_custom_tokenizers = parse_flag_from_env("RUN_CUSTOM_TOKENIZERS", default=Fa
 _run_staging = parse_flag_from_env("HUGGINGFACE_CO_STAGING", default=False)
 _run_pipeline_tests = parse_flag_from_env("RUN_PIPELINE_TESTS", default=True)
 _run_agent_tests = parse_flag_from_env("RUN_AGENT_TESTS", default=False)
+_run_third_party_device_tests = parse_flag_from_env("RUN_THIRD_PARTY_DEVICE_TESTS", default=False)
+_test_with_rocm = parse_flag_from_env("TEST_WITH_ROCM", default=False)
+
+def skipIfRocm(func=None, *, msg="test doesn't currently work on the ROCm stack"):
+    def dec_fn(fn):
+        reason = f"skipIfRocm: {msg}"
+
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            if _test_with_rocm:
+                pytest.skip(reason)
+            else:
+                return fn(*args, **kwargs)
+        return wrapper
+    if func:
+        return dec_fn(func)
+    return dec_fn
+
+
+def is_pt_tf_cross_test(test_case):
+    """
+    Decorator marking a test as a test that control interactions between PyTorch and TensorFlow.
+
+    PT+TF tests are skipped by default and we can run only them by setting RUN_PT_TF_CROSS_TESTS environment variable
+    to a truthy value and selecting the is_pt_tf_cross_test pytest mark.
+
+    """
+    if not _run_pt_tf_cross_tests or not is_torch_available() or not is_tf_available():
+        return unittest.skip(reason="test is PT+TF test")(test_case)
+    else:
+        try:
+            import pytest  # We don't need a hard dependency on pytest in the main library
+        except ImportError:
+            return test_case
+        else:
+            return pytest.mark.is_pt_tf_cross_test()(test_case)
+
+
+def is_pt_flax_cross_test(test_case):
+    """
+    Decorator marking a test as a test that control interactions between PyTorch and Flax
+
+    PT+FLAX tests are skipped by default and we can run only them by setting RUN_PT_FLAX_CROSS_TESTS environment
+    variable to a truthy value and selecting the is_pt_flax_cross_test pytest mark.
+
+    """
+    if not _run_pt_flax_cross_tests or not is_torch_available() or not is_flax_available():
+        return unittest.skip(reason="test is PT+FLAX test")(test_case)
+    else:
+        try:
+            import pytest  # We don't need a hard dependency on pytest in the main library
+        except ImportError:
+            return test_case
+        else:
+            return pytest.mark.is_pt_flax_cross_test()(test_case)
 
 
 def is_staging_test(test_case):
