@@ -42,6 +42,7 @@ from transformers.testing_utils import (
     set_model_tester_for_less_flaky_test,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ..test_modeling_common import floats_tensor, ids_tensor
@@ -671,6 +672,7 @@ class GenerationTesterMixin:
     @require_accelerate
     @require_torch_multi_accelerator
     @pytest.mark.generate
+    @skipIfRocm
     def test_model_parallel_beam_search(self):
         for model_class in self.all_generative_model_classes:
             if "xpu" in torch_device:
