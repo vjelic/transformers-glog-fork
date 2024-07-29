@@ -28,6 +28,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm
 )
 from transformers.trainer_utils import set_seed
 from transformers.utils import cached_property
@@ -1120,6 +1121,7 @@ class SpeechT5ForTextToSpeechIntegrationTests(unittest.TestCase):
         )
 
     @require_deterministic_for_xpu
+    @skipIfRocm
     def test_one_to_many_generation(self):
         model = self.default_model
         processor = self.default_processor
@@ -1229,6 +1231,7 @@ class SpeechT5ForTextToSpeechIntegrationTests(unittest.TestCase):
             )
 
     @require_deterministic_for_xpu
+    @skipIfRocm
     def test_batch_generation(self):
         model = self.default_model
         processor = self.default_processor

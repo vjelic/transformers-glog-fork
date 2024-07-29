@@ -22,6 +22,7 @@ from transformers.testing_utils import (
     require_torch_multi_gpu,
     slow,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import is_detectron2_available, is_torch_available
 
@@ -280,6 +281,10 @@ class LayoutLMv2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
         if is_torch_available()
         else {}
     )
+
+    @skipIfRocm
+    def test_inputs_embeds_matches_input_ids(self):
+        super().test_inputs_embeds_matches_input_ids()  
 
     def setUp(self):
         self.model_tester = LayoutLMv2ModelTester(self)

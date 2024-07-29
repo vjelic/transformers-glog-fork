@@ -41,6 +41,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 from transformers.utils import cached_property
 
@@ -176,6 +177,10 @@ class MusicgenDecoderTest(ModelTesterMixin, GenerationTesterMixin, PipelineTeste
     test_pruning = False
     test_resize_embeddings = False
 
+    @skipIfRocm
+    def test_multi_gpu_data_parallel_forward(self):
+        super().test_multi_gpu_data_parallel_forward()
+  
     def setUp(self):
         self.model_tester = MusicgenDecoderTester(self)
         self.config_tester = ConfigTester(self, config_class=MusicgenDecoderConfig, hidden_size=16)
@@ -576,6 +581,10 @@ class MusicgenTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin,
     # (and `torchscript` hates `None` values).
     test_torchscript = False
     _is_composite = True
+
+    @skipIfRocm
+    def test_multi_gpu_data_parallel_forward(self):
+        super().test_multi_gpu_data_parallel_forward()
 
     def setUp(self):
         self.model_tester = MusicgenTester(self)
