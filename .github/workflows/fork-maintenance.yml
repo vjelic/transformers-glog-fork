@@ -18,7 +18,7 @@ jobs:
       - name: Fork Maintenance System
         uses: Cemberk/Fork-Maintenance-System@dockerV2 
         with:
-          github_token: ${{ secrets.ACCESS_REPO_INFO_TOKEN }}
+          github_token: ${{ secrets.CRED_TOKEN }}
           upstream_repo: "https://github.com/huggingface/transformers"
           schedule_json: |
             {
