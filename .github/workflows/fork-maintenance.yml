@@ -35,13 +35,7 @@ jobs:
             }
           pr_branch_prefix: "scheduled-merge"
           requirements_command: >
-            ls;
-            pwd;
-            sudo sed -i 's$torchaudio$$g' examples/pytorch/_tests_requirements.txt;
-            pip install -r examples/pytorch/_tests_requirements.txt;
-            pip install --no-cache-dir GPUtil azureml azureml-core tokenizers ninja cerberus sympy sacremoses sacrebleu==1.5.1 sentencepiece scipy scikit-learn urllib3 ;
-            pip install huggingface_hub datasets ;
-            pip install parameterized;
+            ls; pwd; sudo sed -i 's$torchaudio$$g' examples/pytorch/_tests_requirements.txt; pip install -r examples/pytorch/_tests_requirements.txt; pip install --no-cache-dir GPUtil azureml azureml-core tokenizers ninja cerberus sympy sacremoses sacrebleu==1.5.1 sentencepiece scipy scikit-learn urllib3 ; pip install huggingface_hub datasets ; pip install parameterized;
           unit_test_command: >
             pytest
           performance_test_command: >
