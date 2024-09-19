@@ -16,7 +16,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Fork Maintenance System
-        uses: Cemberk/Fork-Maintenance-System@dockerV2_conflict 
+        uses: Cemberk/Fork-Maintenance-System@dockerV4 
         with:
           github_token: ${{ secrets.CRED_TOKEN }}
           upstream_repo: "https://github.com/huggingface/transformers"
