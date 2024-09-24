@@ -24,9 +24,9 @@ jobs:
             {
               "upstream_main_branch": "main",
               "upstream_release_branch": "v4.43-release",
-              "downstream_main_branch": "upstream_sync_test_2",
-              "downstream_testing_branch": "rocm6.3_testing_rel4.43_test_2",
-              "downstream_develop_branch": "develop_test_2",
+              "downstream_main_branch": "upstream_sync",
+              "downstream_testing_branch": "rocm6.3_testing_rel4.43",
+              "downstream_develop_branch": "main",
               "commits": [
                 "731f0308bb0a2796e28b68664f4ed050eab6dbfd",
                 "0c1b311bff616a4faf214461584a758fbab14a6f",
