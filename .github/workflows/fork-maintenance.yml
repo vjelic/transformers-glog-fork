@@ -13,7 +13,7 @@ on:
 
 jobs:
   run-scheduled-events:
-    runs-on: self-hosted
+    runs-on:  gfx90a
     env:
       SCHEDULE_CONFIG: ${{ secrets.SCHEDULE_CONFIG }} # Secret storing the schedule JSON
     steps:
