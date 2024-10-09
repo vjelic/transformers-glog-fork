@@ -564,6 +564,7 @@ class TrainingArguments:
             Use [Deepspeed](https://github.com/microsoft/deepspeed). This is an experimental feature and its API may
             evolve in the future. The value is either the location of DeepSpeed json config file (e.g.,
             `ds_config.json`) or an already loaded json file as a `dict`"
+<<<<<<< HEAD
 
             <Tip warning={true}>
                 If enabling any Zero-init, make sure that your model is not initialized until
@@ -599,6 +600,8 @@ class TrainingArguments:
                     If `True`, an `Accelerator` or `PartialState` must be initialized. Note that by doing so, this could lead to issues
                     with hyperparameter tuning.
 
+=======
+>>>>>>> origin/main_old
         ortmodule (:obj:`bool`, `optional`):
             Use `ORTModule <https://github.com/microsoft/onnxruntime>`__.
         label_smoothing_factor (`float`, *optional*, defaults to 0.0):
