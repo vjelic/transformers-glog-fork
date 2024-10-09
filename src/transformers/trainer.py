@@ -1773,8 +1773,8 @@ class Trainer:
             return smp.DistributedModel(model, backward_passes_per_step=self.args.gradient_accumulation_steps)
 
         # train/eval could be run multiple-times - if already wrapped, don't re-wrap it again
-        if self.accelerator.unwrap_model(model) is not model:
-        #if unwrap_model(model) is not model:
+        #if self.accelerator.unwrap_model(model) is not model:
+        if unwrap_model(model) is not model:
             if self.args.ort:
                 from torch_ort import ORTModule
                 if type(model) is not ORTModule:
