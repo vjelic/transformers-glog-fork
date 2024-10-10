@@ -2495,9 +2495,9 @@ class Trainer:
 
         # add remaining tr_loss
         self._total_loss_scalar += tr_loss.item()
-        #effective_global_step = max(self.state.global_step, 0.001)  # Avoid ZeroDivisionError
-        #train_loss = self._total_loss_scalar / effective_global_step
-        train_loss = self._total_loss_scalar / self.state.global_step
+        effective_global_step = max(self.state.global_step, 0.001)  # Avoid ZeroDivisionError
+        train_loss = self._total_loss_scalar / effective_global_step
+        #train_loss = self._total_loss_scalar / self.state.global_step
 
 
         metrics = speed_metrics("train", start_time, num_samples=num_train_samples, num_steps=self.state.max_steps,num_tokens=num_train_tokens,)
