@@ -2608,6 +2608,7 @@ class ModelTesterMixin:
             torch.testing.assert_close(out_embeds, out_ids)
 
     @require_torch_gpu
+    @skipIfRocm
     @require_torch_multi_gpu
     def test_multi_gpu_data_parallel_forward(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
