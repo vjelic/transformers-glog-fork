@@ -2497,9 +2497,6 @@ class Trainer:
                     if (self.state.global_step == 10):
                         start_train_stable_time = time.time()
 
-                    with self.accelerator.accumulate(model):
-                        tr_loss_step = self.training_step(model, inputs)
-
                     if self.args.include_num_input_tokens_seen:
                         main_input_name = getattr(self.model, "main_input_name", "input_ids")
                         if main_input_name not in inputs:
