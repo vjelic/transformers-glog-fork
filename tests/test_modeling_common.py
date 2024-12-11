@@ -3494,6 +3494,7 @@ class ModelTesterMixin:
                 "Data2VecAudioForSequenceClassification",
                 "UniSpeechForSequenceClassification",
                 "PvtForImageClassification",
+                "TimmWrapperForImageClassification",
             ]
             special_param_names = [
                 r"^bit\.",
@@ -3514,6 +3515,7 @@ class ModelTesterMixin:
                 r"^swiftformer\.",
                 r"^swinv2\.",
                 r"^transformers\.models\.swiftformer\.",
+                r"^timm_model\.",
                 r"^unispeech\.",
                 r"^unispeech_sat\.",
                 r"^vision_model\.",
