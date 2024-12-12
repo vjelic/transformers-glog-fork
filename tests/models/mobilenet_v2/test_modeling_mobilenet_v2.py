@@ -17,7 +17,7 @@
 import unittest
 
 from transformers import MobileNetV2Config
-from transformers.testing_utils import is_flaky, require_torch, require_vision, slow, torch_device
+from transformers.testing_utils import is_flaky, require_torch, require_vision, slow, torch_device, skipIfRocm
 from transformers.utils import cached_property, is_torch_available, is_vision_available
 
 from ...test_configuration_common import ConfigTester
@@ -212,6 +212,22 @@ class MobileNetV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestC
 
     def test_config(self):
         self.config_tester.run_common_tests()
+
+    @skipIfRocm
+    def test_cpu_offload(self):
+        pass
+
+    @skipIfRocm
+    def test_disk_offload_bin(self):
+        pass
+
+    @skipIfRocm
+    def test_disk_offload_safetensors(self):
+        pass
+
+    @skipIfRocm
+    def test_feed_forward_chunking(self):
+        pass
 
     @unittest.skip(reason="MobileNetV2 does not use inputs_embeds")
     def test_inputs_embeds(self):
