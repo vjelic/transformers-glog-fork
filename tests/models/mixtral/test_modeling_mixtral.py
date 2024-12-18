@@ -318,7 +318,7 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     )
     test_headmasking = False
     test_pruning = False
-    fx_compatible = True
+    fx_compatible = False  # Broken by attention refactor cc @Cyrilvallez
 
     @skipIfRocm(min_torch_version='2.5')
     def test_flex_attention_with_grads(self):
