@@ -230,17 +230,79 @@ _run_agent_tests = parse_flag_from_env("RUN_AGENT_TESTS", default=False)
 _run_third_party_device_tests = parse_flag_from_env("RUN_THIRD_PARTY_DEVICE_TESTS", default=False)
 _test_with_rocm = parse_flag_from_env("TEST_WITH_ROCM", default=False)
 
-def skipIfRocm(func=None, *, msg="test doesn't currently work on the ROCm stack"):
+
+def skipIfRocm(func=None, *, msg="test doesn't currently work on the ROCm stack", arch=None):
+    """
+    Pytest decorator to skip a test on AMD systems running ROCm.
+    
+    The decorator uses shell commands to:
+      - Detect the GPU vendor.
+      - Extract the GPU architecture information:
+          * For AMD: extracts using `/opt/rocm/bin/rocminfo`.
+          * For NVIDIA: extracts using `nvidia-smi` (for informational purposes, though skip logic is only applied for AMD).
+    
+    Behavior:
+      - If the detected GPU vendor is AMD:
+          * When `arch` is None, the test is skipped unconditionally.
+          * When `arch` is provided (as a string or an iterable of strings), the test is skipped only if the
+            detected GPU architecture matches one of the specified values.
+      - If the GPU vendor is not AMD (e.g. NVIDIA), the test runs normally.
+    
+    Parameters:
+      msg (str): The skip message.
+      arch (str or iterable of str, optional): The GPU architecture(s) to match against.
+    """
+    def get_gpu_vendor():
+        """
+        Returns the GPU vendor as determined by checking for NVIDIA or ROCm utilities.
+        """
+        cmd = (
+            "bash -c 'if [[ -f /usr/bin/nvidia-smi ]] && "
+            "$(/usr/bin/nvidia-smi > /dev/null 2>&1); then echo \"NVIDIA\"; "
+            "elif [[ -f /opt/rocm/bin/rocm-smi ]]; then echo \"AMD\"; "
+            "else echo \"Unable to detect GPU vendor\"; fi || true'"
+        )
+        return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+
+    def get_system_gpu_architecture():
+        """
+        Returns the GPU architecture string.
+        
+        For AMD GPUs, it extracts a line starting with 'gfx' using `/opt/rocm/bin/rocminfo`.
+        For NVIDIA GPUs, it extracts the GPU name using `nvidia-smi`.
+        """
+        vendor = get_gpu_vendor()
+        if vendor == "AMD":
+            cmd = "/opt/rocm/bin/rocminfo | grep -o -m 1 'gfx.*'"
+            return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+        elif vendor == "NVIDIA":
+            cmd = (
+                "nvidia-smi -L | head -n1 | sed 's/(UUID: .*)//g' | sed 's/GPU 0: //g'"
+            )
+            return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+        else:
+            raise RuntimeError("Unable to determine GPU architecture due to unknown GPU vendor.")
+
     def dec_fn(fn):
         reason = f"skipIfRocm: {msg}"
 
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            if _test_with_rocm:
-                pytest.skip(reason)
-            else:
-                return fn(*args, **kwargs)
+            vendor = get_gpu_vendor()
+            # Apply the ROCm (AMD) skip logic only if the detected vendor is AMD.
+            if vendor == "AMD":
+                # If no specific architecture is provided, skip unconditionally.
+                if arch is None:
+                    pytest.skip(reason)
+                else:
+                    # Allow `arch` to be provided as a single string or an iterable.
+                    arch_list = (arch,) if isinstance(arch, str) else arch
+                    current_gpu_arch = get_system_gpu_architecture()
+                    if current_gpu_arch in arch_list:
+                        pytest.skip(reason)
+            return fn(*args, **kwargs)
         return wrapper
+
     if func:
         return dec_fn(func)
     return dec_fn
