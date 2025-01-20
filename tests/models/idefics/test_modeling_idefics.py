@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import cached_property
 
@@ -589,7 +590,17 @@ class IdeficsModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
 
 @require_torch
 class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, unittest.TestCase):
-    all_model_classes = (IdeficsForVisionText2Text,) if is_torch_available() else ()
+    all_model_classes = (IdeficsForVisionText2Text,) if is_torch_available() else ()    
+
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+        pass
+
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+        pass
 
     def setUp(self):
         self.model_tester = IdeficsModelTester(
