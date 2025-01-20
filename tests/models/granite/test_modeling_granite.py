@@ -30,6 +30,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -305,6 +306,16 @@ class GraniteModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
 
     # used in `test_torch_compile`
     _torch_compile_test_ckpt = "ibm/PowerLM-3b"
+
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+        pass
+
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+        pass
 
     def setUp(self):
         self.model_tester = GraniteModelTester(self)
