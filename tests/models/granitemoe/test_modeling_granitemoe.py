@@ -308,6 +308,16 @@ class GraniteMoeModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+        pass
+
+    @skipIfRocm(arch='gfx1201')
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+        pass
+
     def setUp(self):
         self.model_tester = GraniteMoeModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GraniteMoeConfig, hidden_size=37)

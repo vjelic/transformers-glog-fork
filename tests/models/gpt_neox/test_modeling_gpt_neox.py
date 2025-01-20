@@ -19,7 +19,7 @@ import unittest
 from parameterized import parameterized
 
 from transformers import AutoTokenizer, GPTNeoXConfig, is_torch_available, set_seed
-from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
+from transformers.testing_utils import require_torch, require_torch_sdpa, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
