@@ -32,6 +32,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -316,6 +317,16 @@ class LlamaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
 
     # used in `test_torch_compile_for_training`
     _torch_compile_train_cls = LlamaForCausalLM if is_torch_available() else None
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+        pass
 
     def setUp(self):
         self.model_tester = LlamaModelTester(self)

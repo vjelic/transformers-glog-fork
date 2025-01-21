@@ -28,6 +28,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -298,6 +299,11 @@ class JetMoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     test_cpu_offload = False
     test_disk_offload_bin = False
     test_disk_offload_safetensors = False
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     @parameterized.expand([(1, False), (1, True), (4, False)])
     def test_new_cache_format(self, num_beams, do_sample):

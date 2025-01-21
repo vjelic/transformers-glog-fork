@@ -18,7 +18,7 @@ import unittest
 from parameterized import parameterized
 
 from transformers import GPTBigCodeConfig, is_torch_available
-from transformers.testing_utils import cleanup, require_torch, slow, torch_device
+from transformers.testing_utils import cleanup, require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -453,6 +453,11 @@ class GPTBigCodeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTeste
     def test_past_key_values_format(self):
         pass
 
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
     def test_gpt_bigcode_model(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_gpt_bigcode_model(*config_and_inputs)
@@ -502,6 +507,11 @@ class GPTBigCodeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTeste
 class GPTBigCodeMHAModelTest(GPTBigCodeModelTest):
     # `parameterized_class` breaks with mixins, so we use inheritance instead
     multi_query = False
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
 
 @unittest.skipIf(

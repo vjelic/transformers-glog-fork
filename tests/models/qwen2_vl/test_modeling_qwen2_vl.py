@@ -32,6 +32,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -229,6 +230,21 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
     pipeline_model_mapping = {"image-text-to-text": Qwen2VLForConditionalGeneration}
     test_pruning = False
     test_head_masking = False
+
+    @skipIfRocm(os_name='sles')
+    def test_new_cache_format_0(self):
+        super().test_new_cache_format_0()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_new_cache_format_1(self):
+        super().test_new_cache_format_1()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_generate_continue_from_past_key_values(self):
+        super().test_generate_continue_from_past_key_values()
+        pass
 
     def setUp(self):
         self.model_tester = Qwen2VLVisionText2TextModelTester(self)

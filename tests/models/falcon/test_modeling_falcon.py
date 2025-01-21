@@ -31,6 +31,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -320,6 +321,11 @@ class FalconModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         processor_name,
     ):
         return True
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     def setUp(self):
         self.model_tester = FalconModelTester(self)

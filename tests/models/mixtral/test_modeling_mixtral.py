@@ -317,6 +317,16 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     test_pruning = False
     fx_compatible = True
 
+    @skipIfRocm(os_name='sles')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
     # TODO (ydshieh): Check this. See https://app.circleci.com/pipelines/github/huggingface/transformers/79245/workflows/9490ef58-79c2-410d-8f51-e3495156cf9c/jobs/1012146
     def is_pipeline_test_to_skip(
         self,

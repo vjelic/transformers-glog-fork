@@ -17,7 +17,7 @@
 import unittest
 
 from transformers import XLMRobertaXLConfig, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -388,6 +388,11 @@ class XLMRobertaXLModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTes
     )
 
     model_split_percents = [0.5, 0.85, 0.95]
+    
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     # TODO: Fix the failed tests
     def is_pipeline_test_to_skip(

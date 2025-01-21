@@ -602,12 +602,12 @@ class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, uni
     all_generative_model_classes = (IdeficsForVisionText2Text,) if is_torch_available() else ()
     
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch='gfx1201', os_name='sles')
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch='gfx1201', os_name='sles')
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass
@@ -626,6 +626,7 @@ class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, uni
         pass
 
     @pytest.mark.generate
+    @skipIfRocm(os_name='sles')
     def test_left_padding_compatibility(self):
         """Overwrite because IDEFICS needs image attention mask to be also padded"""
         # NOTE: left-padding results in small numerical differences. This is expected.

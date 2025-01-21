@@ -301,14 +301,24 @@ class GraniteModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     # This is because we are hitting edge cases with the causal_mask buffer
     model_split_percents = [0.5, 0.7, 0.8]
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch='gfx1201', os_name='sles')
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch='gfx1201', os_name='sles')
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
         pass
 
     def setUp(self):

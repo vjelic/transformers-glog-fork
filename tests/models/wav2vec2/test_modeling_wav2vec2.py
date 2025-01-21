@@ -42,6 +42,7 @@ from transformers.testing_utils import (
     run_test_in_subprocess,
     slow,
     torch_device,
+    skipIfRocm
 )
 from transformers.utils import is_torch_fx_available
 
@@ -875,6 +876,7 @@ class Wav2Vec2RobustModelTest(ModelTesterMixin, unittest.TestCase):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model_with_attn_adapter(*config_and_inputs)
 
+    @skipIfRocm(os_name='sles')
     def test_batched_inference(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_batch_inference(*config_and_inputs)

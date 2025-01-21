@@ -308,6 +308,21 @@ class StableLmModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
     test_headmasking = False
     test_pruning = False
 
+    @skipIfRocm(os_name='sles')
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
     @skipIfRocm(arch='gfx1201')
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()

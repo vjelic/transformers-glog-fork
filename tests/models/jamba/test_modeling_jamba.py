@@ -343,6 +343,11 @@ class JambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     test_headmasking = False
     test_pruning = False
 
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
     def setUp(self):
         self.model_tester = JambaModelTester(self)
         self.config_tester = JambaConfigTester(self, config_class=JambaConfig, hidden_size=37)

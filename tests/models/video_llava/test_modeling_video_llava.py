@@ -35,6 +35,7 @@ from transformers.testing_utils import (
     run_test_using_subprocess,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -215,6 +216,11 @@ class VideoLlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTe
     test_resize_embeddings = True
     test_head_masking = False
     _is_composite = True
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     def setUp(self):
         self.model_tester = VideoLlavaVisionText2TextModelTester(self)

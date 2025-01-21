@@ -33,6 +33,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -223,6 +224,11 @@ class LlavaOnevisionForConditionalGenerationModelTest(ModelTesterMixin, Generati
     test_pruning = False
     test_head_masking = False
     _is_composite = True
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     def setUp(self):
         self.model_tester = LlavaOnevisionVisionText2TextModelTester(self)

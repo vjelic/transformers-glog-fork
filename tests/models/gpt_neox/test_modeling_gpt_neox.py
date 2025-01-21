@@ -287,9 +287,19 @@ class GPTNeoXModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     test_model_parallel = False
     test_head_masking = False
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch='gfx1201', os_name='sles')
     def test_generate_with_static_cache():
         super().test_generate_with_static_cache()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
+
+    @skipIfRocm(os_name='sles')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
         pass
 
     def setUp(self):

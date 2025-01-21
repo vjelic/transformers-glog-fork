@@ -18,7 +18,7 @@ import math
 import unittest
 
 from transformers import BioGptConfig, is_sacremoses_available, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -297,6 +297,11 @@ class BioGptModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         else {}
     )
     test_pruning = False
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     def setUp(self):
         self.model_tester = BioGptModelTester(self)

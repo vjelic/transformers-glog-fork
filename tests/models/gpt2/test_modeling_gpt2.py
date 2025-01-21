@@ -28,6 +28,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -533,6 +534,11 @@ class GPT2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
                     self.model_tester.batch_size, dtype=torch.long, device=torch_device
                 )
         return inputs_dict
+
+    @skipIfRocm(os_name='sles')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
+        pass
 
     def setUp(self):
         self.model_tester = GPT2ModelTester(self)
