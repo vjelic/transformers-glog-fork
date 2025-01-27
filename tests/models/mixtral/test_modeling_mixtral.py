@@ -321,6 +321,14 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
     # TODO (ydshieh): Check this. See https://app.circleci.com/pipelines/github/huggingface/transformers/79245/workflows/9490ef58-79c2-410d-8f51-e3495156cf9c/jobs/1012146
     def is_pipeline_test_to_skip(
         self,

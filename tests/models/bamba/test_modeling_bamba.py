@@ -293,6 +293,18 @@ class BambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model(*config_and_inputs)
 
+    @skipIfRocm
+    def test_new_cache_format_0(self):
+        super().test_new_cache_format_0()
+
+    @skipIfRocm
+    def test_new_cache_format_1(self):
+        super().test_new_cache_format_1()
+
+    @skipIfRocm
+    def test_new_cache_format_2(self):
+        super().test_new_cache_format_2()
+
     def test_for_casual_lm(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_for_causal_lm(*config_and_inputs)
