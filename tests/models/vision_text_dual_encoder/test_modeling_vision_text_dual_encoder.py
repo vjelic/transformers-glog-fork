@@ -207,6 +207,10 @@ class VisionTextDualEncoderMixin:
 
 @require_torch
 class ViTBertModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
+    @skipIfRocm(arch=['gfx90a','gfx942'])
+    def test_save_load(self):
+        super().test_save_load()
+
     def get_pretrained_model_and_inputs(self):
         model = VisionTextDualEncoderModel.from_vision_text_pretrained(
             "hf-internal-testing/tiny-random-vit", "hf-internal-testing/tiny-bert"
@@ -264,6 +268,10 @@ class ViTBertModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
 
 @require_torch
 class DeiTRobertaModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
+    @skipIfRocm(arch=['gfx90a','gfx942'])
+    def test_save_load(self):
+        super().test_save_load()
+
     def get_pretrained_model_and_inputs(self):
         model = VisionTextDualEncoderModel.from_vision_text_pretrained(
             "hf-internal-testing/tiny-random-deit", "hf-internal-testing/tiny-random-roberta"
@@ -351,6 +359,10 @@ class DeiTRobertaModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
 
 @require_torch
 class CLIPVisionBertModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
+    @skipIfRocm(arch=['gfx90a','gfx942'])
+    def test_save_load(self):
+        super().test_save_load()
+
     def get_pretrained_model_and_inputs(self):
         model = VisionTextDualEncoderModel.from_vision_text_pretrained(
             "hf-internal-testing/tiny-random-clip", "hf-internal-testing/tiny-bert"

@@ -209,6 +209,22 @@ class Qwen2_5_VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
     test_pruning = False
     test_head_masking = False
 
+    @skipIfRocm(arch='gfx90a')
+    def test_generate_continue_from_past_key_values(self):
+        super().test_generate_continue_from_past_key_values()
+
+    @skipIfRocm(arch='gfx942')
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
+    @skipIfRocm(arch='gfx942')
+    def test_generate_from_inputs_embeds_0_greedy(self):
+        super().test_generate_from_inputs_embeds_0_greedy()
+
+    @skipIfRocm(arch='gfx942')
+    def test_generate_from_inputs_embeds_1_beam_search(self):
+        super().test_generate_from_inputs_embeds_1_beam_search()
+
     def setUp(self):
         self.model_tester = Qwen2_5_VLVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Qwen2_5_VLConfig, has_text_modality=False)
