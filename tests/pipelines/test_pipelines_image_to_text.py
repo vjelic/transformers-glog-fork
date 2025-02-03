@@ -80,7 +80,7 @@ class ImageToTextPipelineTests(unittest.TestCase):
         )
 
     @require_torch
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch=['gfx1201','gfx942'])
     def test_small_model_pt(self):
         pipe = pipeline("image-to-text", model="hf-internal-testing/tiny-random-vit-gpt2", max_new_tokens=19)
         image = "./tests/fixtures/tests_samples/COCO/000000039769.png"
