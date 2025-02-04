@@ -24,6 +24,7 @@ from transformers.testing_utils import (
     get_torch_dist_unique_port,
     require_torch_multi_accelerator,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import is_ccl_available, is_ipex_available
 
@@ -116,6 +117,7 @@ if is_torch_available():
 
 class TestFSDPGeneration(TestCasePlus):
     @require_torch_multi_accelerator
+    @skipIfRocm(arch='gfx90a')
     def test_fsdp_generate(self):
         device_count = backend_device_count(torch_device)
         distributed_args = f"""--nproc_per_node={device_count}
@@ -128,6 +130,7 @@ class TestFSDPGeneration(TestCasePlus):
         # successful return here == success - any errors would have caused an error in the sub-call
 
     @require_torch_multi_accelerator
+    @skipIfRocm(arch='gfx90a')
     def test_fsdp2_generate(self):
         device_count = backend_device_count(torch_device)
 
