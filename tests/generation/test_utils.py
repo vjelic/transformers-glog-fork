@@ -2892,7 +2892,7 @@ class GenerationIntegrationTests(unittest.TestCase):
             ],
         )
 
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1100','gfx1101','gfx1201','gfx1200'])
     def test_max_length_if_input_embeds(self):
         article = "Today a dragon flew over Paris."
         model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
@@ -2906,7 +2906,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         out_gen_embeds = model.generate(inputs_embeds=inputs_embeds, max_length=max_length)
         self.assertEqual(out_gen.shape[-1], input_len + out_gen_embeds.shape[-1])
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_min_length_if_input_embeds(self):
         article = "Today a dragon flew over Paris."
         model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
@@ -2956,7 +2956,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         )
 
     # TODO (joao): replace `stop_sequence` in the pipeline by the more recent `generate` functionality
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_stop_sequence_stopping_criteria(self):
         prompt = """Hello I believe in"""
         generator = pipeline("text-generation", model="hf-internal-testing/tiny-random-bart")
@@ -3467,7 +3467,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             outputs = bart_model.generate(input_ids, generation_config=GenerationConfig(do_sample=False))
 
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1100','gfx1101'])
     def test_contrastive_search_batched(self):
         # Tests that contrastive search works with batched inputs (i.e. has the same output as for non-batched inputs)
         articles = ["Foo", "Bar Baz"]
@@ -3513,7 +3513,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         self.assertListEqual(out.logits[-1].tolist(), out.scores[-1].tolist())
         self.assertNotEqual(out_with_temp.logits[-1].tolist(), out_with_temp.scores[-1].tolist())
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_eos_token_id_int_and_list_top_k_top_sampling(self):
         # Has TF equivalent: this test relies on random sampling
         generation_kwargs = {
@@ -3542,7 +3542,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         generated_tokens = model.generate(**tokens, eos_token_id=eos_token_id, **generation_kwargs)
         self.assertTrue(expectation == len(generated_tokens[0]))
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_model_kwarg_encoder_signature_filtering(self):
         # Has TF equivalent: ample use of framework-specific code
         bart_tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-bart")
@@ -3580,7 +3580,7 @@ class GenerationIntegrationTests(unittest.TestCase):
             # FakeEncoder.forward() accepts **kwargs -> no filtering -> type error due to unexpected input "foo"
             bart_model.generate(input_ids, foo="bar")
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_default_max_length_warning(self):
         model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
         tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-gpt2")
@@ -3637,7 +3637,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         self.assertEqual(config.assistant_confidence_threshold, 0.4)
         self.assertEqual(config.is_assistant, False)
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_generated_length_assisted_generation(self):
         model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
         assistant = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
@@ -3672,7 +3672,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         )
         self.assertTrue(out.shape[-1] <= (input_length + 7))
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_model_kwarg_assisted_decoding_decoder_only(self):
         model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-gpt2").to(torch_device)
         tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-gpt2")
@@ -3707,7 +3707,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         self.assertListEqual(outputs_assisted.tolist(), outputs_tti.tolist())
 
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_assisted_decoding_num_assistant_tokens_heuristic_schedule(self):
         # This test ensures that the assisted generation num_assistant_tokens 'heuristic' schedule works properly.
 
@@ -4232,7 +4232,7 @@ class GenerationIntegrationTests(unittest.TestCase):
         self.assertEqual(generated_text_no_padding, generated_text_with_padding)
         self.assertEqual(generated_text_no_padding, "Ich muss diese Aufgabe vor Ende des Tages beenden.")
 
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_prepare_inputs_for_generation_decoder_llm(self):
         """Tests GenerationMixin.prepare_inputs_for_generation against expected usage with decoder-only llms."""
 
@@ -4379,7 +4379,7 @@ class GenerationIntegrationTests(unittest.TestCase):
 
     @require_read_token
     @slow
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1200'])
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_assisted_generation_early_exit(self):
         """
         Tests that assisted generation with early exit works as expected. Under the hood, this has complex cache
