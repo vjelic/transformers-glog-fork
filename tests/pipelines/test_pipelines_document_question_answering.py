@@ -147,6 +147,43 @@ class DocumentQuestionAnsweringPipelineTests(unittest.TestCase):
         outputs = dqa_pipeline(image=image, question=question, words=words, boxes=boxes, top_k=2)
         self.assertEqual(outputs, [])
 
+    @require_torch
+    @require_torch_bf16
+    @require_detectron2
+    @require_pytesseract
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='24.04')
+    def test_small_model_pt_bf16(self):
+        dqa_pipeline = pipeline(
+            "document-question-answering",
+            model="hf-internal-testing/tiny-random-layoutlmv2-for-dqa-test",
+            torch_dtype=torch.bfloat16,
+        )
+        image = INVOICE_URL
+        question = "How many cats are there?"
+
+        expected_output = [
+            {"score": 0.0001, "answer": "oy 2312/2019", "start": 38, "end": 39},
+            {"score": 0.0001, "answer": "oy 2312/2019 DUE", "start": 38, "end": 40},
+        ]
+        outputs = dqa_pipeline(image=image, question=question, top_k=2)
+        self.assertEqual(nested_simplify(outputs, decimals=4), expected_output)
+
+        outputs = dqa_pipeline({"image": image, "question": question}, top_k=2)
+        self.assertEqual(nested_simplify(outputs, decimals=4), expected_output)
+
+        # This image does not detect ANY text in it, meaning layoutlmv2 should fail.
+        # Empty answer probably
+        image = "./tests/fixtures/tests_samples/COCO/000000039769.png"
+        outputs = dqa_pipeline(image=image, question=question, top_k=2)
+        self.assertEqual(outputs, [])
+
+        # We can optionnally pass directly the words and bounding boxes
+        image = "./tests/fixtures/tests_samples/COCO/000000039769.png"
+        words = []
+        boxes = []
+        outputs = dqa_pipeline(image=image, question=question, words=words, boxes=boxes, top_k=2)
+        self.assertEqual(outputs, [])
+
     # 	 TODO: Enable this once hf-internal-testing/tiny-random-donut is implemented
     #    @require_torch
     #    def test_small_model_pt_donut(self):
