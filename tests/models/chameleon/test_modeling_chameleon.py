@@ -29,6 +29,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -286,6 +287,14 @@ class ChameleonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
     test_headmasking = False
     test_pruning = False
     fx_compatible = False
+
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
 
     def setUp(self):
         self.model_tester = ChameleonModelTester(self)
