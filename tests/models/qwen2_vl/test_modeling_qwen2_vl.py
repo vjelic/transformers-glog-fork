@@ -201,6 +201,14 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
     test_head_masking = False
     _is_composite = True
 
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    def test_generate_with_static_cache():
+        super().test_generate_with_static_cache()
+
+    @skipIfRocm(arch='gfx90a')
+    def test_generate_continue_from_past_key_values(self):
+        super().test_generate_continue_from_past_key_values()
+
     def setUp(self):
         self.model_tester = Qwen2VLVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Qwen2VLConfig, has_text_modality=False)

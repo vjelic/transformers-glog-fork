@@ -28,6 +28,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...test_configuration_common import ConfigTester
@@ -247,6 +248,10 @@ class ModernBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
     test_head_masking = False
     test_pruning = False
     model_split_percents = [0.5, 0.8, 0.9]
+
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    def test_training_gradient_checkpointing_use_reentrant_false(self):
+        super().test_training_gradient_checkpointing_use_reentrant_false()
 
     # special case for ForPreTraining model
     def _prepare_for_class(self, inputs_dict, model_class, return_labels=False):
