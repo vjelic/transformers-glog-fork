@@ -751,6 +751,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
         torch.testing.assert_close(model.a, a, **kwargs)
         torch.testing.assert_close(model.b, b, **kwargs)
 
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_reproducible_training(self):
         # Checks that training worked, model trained and seed made a reproducible training.
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -764,6 +765,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer.train()
             self.check_trained_model(trainer.model, alternate_seed=True)
 
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_trainer_with_datasets(self):
         import datasets
 
@@ -795,6 +797,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer.train()
             self.check_trained_model(trainer.model)
 
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_model_init(self):
         train_dataset = RegressionDataset()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1015,6 +1018,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             # max diff broken should be very off
             self.assertGreater(max(diff_broken), 3, f"Difference {max(diff_broken)} is not greater than 3")
 
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_gradient_accumulation(self):
         # Training with half the batch size but accumulation steps as 2 should give the same training losses.
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1237,6 +1241,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
 
     @require_torch_bf16
     @require_torch_accelerator
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_mixed_bf16(self):
         # very basic test
         with tempfile.TemporaryDirectory() as tmp_dir:

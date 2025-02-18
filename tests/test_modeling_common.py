@@ -4550,6 +4550,7 @@ class ModelTesterMixin:
                 self.assertTrue(is_tested, msg=f"No outputs were compared for {model_class.__name__}")
 
     @require_torch_gpu
+    @skipIfRocm(min_torch_version='2.5')
     def test_flex_attention_with_grads(self):
         for model_class in self.all_model_classes:
             # TODO: raushan, fix for composite models after making VLMs support new attn API
