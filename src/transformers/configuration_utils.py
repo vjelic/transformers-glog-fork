@@ -189,7 +189,6 @@ class PretrainedConfig(PushToHubMixin):
        loss_type (`str`, *optional*):
             The type of loss that the model should use. It should be in `LOSS_MAPPING`'s keys, otherwise the loss will
             be automatically infered from the model architecture. 
-
     """
 
     model_type: str = ""
