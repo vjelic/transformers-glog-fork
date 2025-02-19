@@ -25,6 +25,7 @@ from transformers.testing_utils import (
     require_tf,
     require_torch,
     require_vision,
+    require_torch_bf16,
     slow,
     skipIfRocm
 )
