@@ -23,6 +23,7 @@ from transformers.testing_utils import (
     require_fp8,
     require_fsdp,
     require_torch_multi_gpu,
+    require_fsdp,
     skipIfRocm,
 )
 
