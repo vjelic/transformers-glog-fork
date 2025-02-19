@@ -396,7 +396,7 @@ class WhisperModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     # `0.5` is for `test_disk_offload` (which also works for `test_model_parallelism`)
     model_split_percents = [0.5, 0.8, 0.9]
 
-    @skipIfRocm
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='24.04')
     def test_longform_generate_multi_batch_cond_prev(self):
         super().test_longform_generate_multi_batch_cond_prev()
 
