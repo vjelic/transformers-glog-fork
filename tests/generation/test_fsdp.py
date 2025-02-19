@@ -21,6 +21,7 @@ from transformers.testing_utils import (
     execute_subprocess_async,
     get_torch_dist_unique_port,
     require_torch_multi_gpu,
+    skipIfRocm,
 )
 
 
