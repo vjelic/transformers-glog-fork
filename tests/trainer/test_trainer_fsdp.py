@@ -21,6 +21,7 @@ from transformers.testing_utils import (
     get_torch_dist_unique_port,
     require_accelerate,
     require_torch_multi_gpu,
+    require_fsdp,
     skipIfRocm,
 )
 
