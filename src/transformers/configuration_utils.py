@@ -190,9 +190,6 @@ class PretrainedConfig(PushToHubMixin):
             The type of loss that the model should use. It should be in `LOSS_MAPPING`'s keys, otherwise the loss will
             be automatically infered from the model architecture. 
 
-    Onnxruntime specific parameters
-
-        - **ort** (:obj:`bool`, `optional`, defaults to :obj:`False`) -- Whether or not the model should use ORT.
     """
 
     model_type: str = ""
