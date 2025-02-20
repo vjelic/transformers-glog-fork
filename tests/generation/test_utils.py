@@ -1251,6 +1251,7 @@ class GenerationTesterMixin:
                 self._check_outputs(output, model.config, use_cache=True)
 
     @pytest.mark.generate
+    @skipIfRocm(arch='gfx942')
     def test_dola_decoding_sample(self):
         # TODO (joao): investigate skips, try to reduce incompatibilities
         for model_class in self.all_generative_model_classes:
