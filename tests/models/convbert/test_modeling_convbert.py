@@ -20,7 +20,7 @@ import unittest
 
 from transformers import ConvBertConfig, is_torch_available
 from transformers.models.auto import get_values
-from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device
+from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device, skipIfRocm
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin, floats_tensor, ids_tensor, random_attention_mask
@@ -273,6 +273,18 @@ class ConvBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase
     )
     test_pruning = False
     test_head_masking = False
+
+    @skipIfRocm
+    def test_training_gradient_checkpointing(self):
+        super().test_training_gradient_checkpointing()
+
+    @skipIfRocm
+    def test_training_gradient_checkpointing_use_reentrant(self):
+        super().test_training_gradient_checkpointing_use_reentrant()
+
+    @skipIfRocm
+    def test_training_gradient_checkpointing_use_reentrant_false(self):
+        super().test_training_gradient_checkpointing_use_reentrant_false()
 
     def setUp(self):
         self.model_tester = ConvBertModelTester(self)
