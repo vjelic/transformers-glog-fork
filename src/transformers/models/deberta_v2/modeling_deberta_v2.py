@@ -262,10 +262,7 @@ class DebertaV2SelfOutput(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        if config.ort:
-            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
-        else:
-            self.dropout = StableDropout(config.hidden_dropout_prob)
+        self.dropout = StableDropout(config.hidden_dropout_prob)
 
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
@@ -665,10 +662,8 @@ class DisentangledSelfAttention(nn.Module):
                 if "p2c" in self.pos_att_type:
                     self.pos_query_proj = nn.Linear(config.hidden_size, self.all_head_size)
 
-        if config.ort:
-            self.dropout = TorchNNDropout(config.attention_probs_dropout_prob)
-        else:
-            self.dropout = StableDropout(config.attention_probs_dropout_prob)
+        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        self.pos_dropout = StableDropout(config.hidden_dropout_prob)
 
     def transpose_for_scores(self, x, attention_heads):
         new_x_shape = x.size()[:-1] + (attention_heads, -1)
@@ -838,7 +833,144 @@ class DisentangledSelfAttention(nn.Module):
         return score
 
 
-# Copied from transformers.models.deberta.modeling_deberta.DebertaEmbeddings with DebertaLayerNorm->LayerNorm
+# Copied from transformers.models.deberta.modeling_deberta.DebertaAttention with Deberta->DebertaV2
+class DebertaV2Attention(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.self = DisentangledSelfAttention(config)
+        self.output = DebertaV2SelfOutput(config)
+        self.config = config
+
+    def forward(
+        self,
+        hidden_states,
+        attention_mask,
+        output_attentions: bool = False,
+        query_states=None,
+        relative_pos=None,
+        rel_embeddings=None,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        self_output, att_matrix = self.self(
+            hidden_states,
+            attention_mask,
+            output_attentions,
+            query_states=query_states,
+            relative_pos=relative_pos,
+            rel_embeddings=rel_embeddings,
+        )
+        if query_states is None:
+            query_states = hidden_states
+        attention_output = self.output(self_output, query_states)
+
+        if output_attentions:
+            return (attention_output, att_matrix)
+        else:
+            return (attention_output, None)
+
+
+# Copied from transformers.models.bert.modeling_bert.BertIntermediate with Bert->DebertaV2
+class DebertaV2Intermediate(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        if isinstance(config.hidden_act, str):
+            self.intermediate_act_fn = ACT2FN[config.hidden_act]
+        else:
+            self.intermediate_act_fn = config.hidden_act
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.intermediate_act_fn(hidden_states)
+        return hidden_states
+
+
+# Copied from transformers.models.deberta.modeling_deberta.DebertaOutput with DebertaLayerNorm->LayerNorm
+class DebertaV2Output(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
+        self.dropout = StableDropout(config.hidden_dropout_prob)
+        self.config = config
+
+    def forward(self, hidden_states, input_tensor):
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        return hidden_states
+
+
+# Copied from transformers.models.deberta.modeling_deberta.DebertaLayer with Deberta->DebertaV2
+class DebertaV2Layer(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.attention = DebertaV2Attention(config)
+        self.intermediate = DebertaV2Intermediate(config)
+        self.output = DebertaV2Output(config)
+
+    def forward(
+        self,
+        hidden_states,
+        attention_mask,
+        query_states=None,
+        relative_pos=None,
+        rel_embeddings=None,
+        output_attentions: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        attention_output, att_matrix = self.attention(
+            hidden_states,
+            attention_mask,
+            output_attentions=output_attentions,
+            query_states=query_states,
+            relative_pos=relative_pos,
+            rel_embeddings=rel_embeddings,
+        )
+        intermediate_output = self.intermediate(attention_output)
+        layer_output = self.output(intermediate_output, attention_output)
+
+        if output_attentions:
+            return (layer_output, att_matrix)
+        else:
+            return (layer_output, None)
+
+
+class ConvLayer(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        kernel_size = getattr(config, "conv_kernel_size", 3)
+        groups = getattr(config, "conv_groups", 1)
+        self.conv_act = getattr(config, "conv_act", "tanh")
+        self.conv = nn.Conv1d(
+            config.hidden_size, config.hidden_size, kernel_size, padding=(kernel_size - 1) // 2, groups=groups
+        )
+        self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
+        self.dropout = StableDropout(config.hidden_dropout_prob)
+        self.config = config
+
+    def forward(self, hidden_states, residual_states, input_mask):
+        out = self.conv(hidden_states.permute(0, 2, 1).contiguous()).permute(0, 2, 1).contiguous()
+        rmask = (1 - input_mask).bool()
+        out.masked_fill_(rmask.unsqueeze(-1).expand(out.size()), 0)
+        out = ACT2FN[self.conv_act](self.dropout(out))
+
+        layer_norm_input = residual_states + out
+        output = self.LayerNorm(layer_norm_input).to(layer_norm_input)
+
+        if input_mask is None:
+            output_states = output
+        else:
+            if input_mask.dim() != layer_norm_input.dim():
+                if input_mask.dim() == 4:
+                    input_mask = input_mask.squeeze(1).squeeze(1)
+                input_mask = input_mask.unsqueeze(2)
+
+            input_mask = input_mask.to(output.dtype)
+            output_states = output * input_mask
+
+        return output_states
+
+
+# Copied from transformers.models.deberta.modeling_deberta.DebertaEmbeddings with DebertaLayerNorm->LayerNorm,Deberta->DebertaV2
 class DebertaV2Embeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
@@ -860,10 +992,7 @@ class DebertaV2Embeddings(nn.Module):
         if self.embedding_size != config.hidden_size:
             self.embed_proj = nn.Linear(self.embedding_size, config.hidden_size, bias=False)
         self.LayerNorm = LayerNorm(config.hidden_size, config.layer_norm_eps)
-        if config.ort:
-            self.dropout = TorchNNDropout(config.hidden_dropout_prob)
-        else:
-            self.dropout = StableDropout(config.hidden_dropout_prob)
+        self.dropout = StableDropout(config.hidden_dropout_prob)
         self.config = config
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
@@ -1205,14 +1334,9 @@ class DebertaV2ForMaskedLM(DebertaV2PreTrainedModel):
 class DebertaV2PredictionHeadTransform(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.embedding_size = getattr(config, "embedding_size", config.hidden_size)
-
-        self.dense = nn.Linear(config.hidden_size, self.embedding_size)
-        if isinstance(config.hidden_act, str):
-            self.transform_act_fn = ACT2FN[config.hidden_act]
-        else:
-            self.transform_act_fn = config.hidden_act
-        self.LayerNorm = nn.LayerNorm(self.embedding_size, eps=config.layer_norm_eps)
+        self.dense = nn.Linear(config.pooler_hidden_size, config.pooler_hidden_size)
+        self.dropout = StableDropout(config.pooler_dropout)
+        self.config = config
 
     def forward(self, hidden_states):
         hidden_states = self.dense(hidden_states)
@@ -1278,10 +1402,7 @@ class DebertaV2ForSequenceClassification(DebertaV2PreTrainedModel):
         self.classifier = nn.Linear(output_dim, num_labels)
         drop_out = getattr(config, "cls_dropout", None)
         drop_out = self.config.hidden_dropout_prob if drop_out is None else drop_out
-        if config.ort:
-            self.dropout = TorchNNDropout(drop_out)
-        else:
-            self.dropout = StableDropout(drop_out)
+        self.dropout = StableDropout(drop_out)
 
         # Initialize weights and apply final processing
         self.post_init()
