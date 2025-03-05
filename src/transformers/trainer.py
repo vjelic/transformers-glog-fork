@@ -2532,6 +2532,9 @@ class Trainer:
                         steps_trained_progress_bar.close()
                         steps_trained_progress_bar = None
 
+                    if (self.state.global_step == args.stable_train_warmup_steps):
+                        start_train_stable_time = time.time()
+
                     if step % args.gradient_accumulation_steps == 0:
                         self.control = self.callback_handler.on_step_begin(args, self.state, self.control)
 
