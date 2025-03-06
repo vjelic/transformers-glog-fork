@@ -45,6 +45,7 @@ from ...utils import (
     add_start_docstrings_to_model_forward,
     logging,
     replace_return_docstrings,
+    is_flash_attn_2_available
 )
 from .configuration_glm import GlmConfig
 
