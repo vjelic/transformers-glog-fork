@@ -44,6 +44,7 @@ from ...utils import (
     is_flash_attn_greater_or_equal_2_10,
     logging,
     replace_return_docstrings,
+    is_flash_attn_2_available
 )
 from .configuration_glm import GlmConfig
 
