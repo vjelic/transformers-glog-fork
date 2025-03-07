@@ -24,7 +24,7 @@ jobs:
 
   torch-pipeline:
     name: Torch pipeline CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: cemberk/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
     with:
       job: run_pipelines_torch_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
@@ -35,7 +35,7 @@ jobs:
 
   example-ci:
     name: Example CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: cemberk/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
     with:
       job: run_examples_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
@@ -46,7 +46,7 @@ jobs:
 
   deepspeed-ci:
     name: DeepSpeed CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: cemberk/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
     with:
       job: run_torch_cuda_extensions_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
