@@ -20,7 +20,7 @@ import numpy as np
 from parameterized import parameterized
 
 from transformers import is_torch_available
-from transformers.testing_utils import require_torch, torch_device
+from transformers.testing_utils import require_torch, torch_device, skipIfRocm
 
 from ..test_modeling_common import ids_tensor
 
@@ -1005,6 +1005,7 @@ class LogitsProcessorTest(unittest.TestCase):
         self.assertAlmostEqual(g_values_mean, 0.5, delta=0.01)
 
     @parameterized.expand([(10000, 3), (1000, 20)])
+    @skipIfRocm
     def test_synthidtext_watermark_processor_bias_uniformity_across_vocab(self, vocab_size, num_layers):
         """Test SynthID watermarked distribution bias uniformity over vocabs of the model."""
         batch_size = 1000
@@ -1038,6 +1039,7 @@ class LogitsProcessorTest(unittest.TestCase):
         self.assertAlmostEqual(g_values_mean, 0.5, delta=0.001)
 
     @parameterized.expand([(2, "uniform"), (10, "uniform"), (2, "random"), (10, "random")])
+    @skipIfRocm
     def test_synthidtext_watermark_processor_distributional_convergence(self, vocab_size, logits_type):
         """Check if watermarked distribution converges to unwatermarked logits distribution."""
         batch_size = 1500

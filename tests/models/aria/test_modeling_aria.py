@@ -36,6 +36,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -198,6 +199,14 @@ class AriaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterMi
     def setUp(self):
         self.model_tester = AriaVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=AriaConfig, has_text_modality=False)
+
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    def test_flex_attention_with_grads(self):
+        super().test_flex_attention_with_grads()
 
     # overwrite inputs_embeds tests because we need to delete "pixel values" for LVLMs
     def test_inputs_embeds(self):

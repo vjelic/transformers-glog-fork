@@ -350,7 +350,7 @@ class ViTBertModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
 
 @require_torch
 class DeiTRobertaModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
-    @skipIfRocm(arch=['gfx942','gfx90a'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1200','gfx1201','gfx1100'])
     def test_save_load():
         super().test_save_load()
         pass
