@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -328,6 +329,126 @@ class Emu3Vision2TextModelTest(ModelTesterMixin, GenerationTesterMixin, Pipeline
 
     def test_config(self):
         self.config_tester.run_common_tests()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_attention_outputs(self):
+        super().test_attention_outputs()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_beam_sample_generate(self):
+        super().test_beam_sample_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_beam_sample_generate_dict_output(self):
+        super().test_beam_sample_generate_dict_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_beam_search_generate(self):
+        super().test_beam_search_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_beam_search_generate_dict_output(self):
+        super().test_beam_search_generate_dict_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_constrained_beam_search_generate(self):
+        super().test_constrained_beam_search_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_constrained_beam_search_generate_dict_output(self):
+        super().test_constrained_beam_search_generate_dict_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_determinism(self):
+        super().test_determinism()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_feed_forward_chunking(self):
+        super().test_feed_forward_chunking()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_flex_attention_with_grads(self):
+        super().test_flex_attention_with_grads()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_forward_with_num_logits_to_keep(self):
+        super().test_forward_with_num_logits_to_keep()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_generate_methods_with_num_logits_to_keep(self):
+        super().test_generate_methods_with_num_logits_to_keep()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_greedy_generate(self):
+        super().test_greedy_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_greedy_generate_dict_outputs(self):
+        super().test_greedy_generate_dict_outputs()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_group_beam_search_generate(self):
+        super().test_group_beam_search_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_group_beam_search_generate_dict_output(self):
+        super().test_group_beam_search_generate_dict_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_hidden_states_output(self):
+        super().test_hidden_states_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_model_outputs_equivalence(self):
+        super().test_model_outputs_equivalence()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_new_cache_format_0(self):
+        super().test_new_cache_format_0()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_new_cache_format_1(self):
+        super().test_new_cache_format_0()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_new_cache_format_2(self):
+        super().test_new_cache_format_0()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_offloaded_cache_implementation_0_offloaded(self):
+        super().test_offloaded_cache_implementation_0_offloaded()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_resize_tokens_embeddings(self):
+        super().test_resize_tokens_embeddings()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_retain_grad_hidden_states_attentions(self):
+        super().test_retain_grad_hidden_states_attentions()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_sample_generate(self):
+        super().test_sample_generate()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_sample_generate_dict_output(self):
+        super().test_sample_generate_dict_output()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    def test_save_load(self):
+        super().test_save_load()
 
     # overwrite inputs_embeds tests because we need to delete "pixel values" for LVLMs
     def test_inputs_embeds(self):
