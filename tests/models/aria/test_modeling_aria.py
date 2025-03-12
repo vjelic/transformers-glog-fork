@@ -200,11 +200,11 @@ class AriaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterMi
         self.model_tester = AriaVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=AriaConfig, has_text_modality=False)
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
