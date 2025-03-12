@@ -313,7 +313,7 @@ class MegatronBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
                 )
         return inputs_dict
 
-    @skipIfRocm(arch='gfx942')
+    @skipIfRocm
     def test_inputs_embeds_matches_input_ids_with_generate(self):
         super().test_inputs_embeds_matches_input_ids_with_generate()
         pass

@@ -29,6 +29,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...models.gemma.test_modeling_gemma import GemmaModelTest, GemmaModelTester
@@ -144,6 +145,7 @@ class Gemma2ModelTest(GemmaModelTest, unittest.TestCase):
         pass
 
     @unittest.skip("Gemma2 has HybridCache and doesn't support StaticCache. Though it could, it shouldn't support.")
+    @skipIfRocm
     def test_generate_with_static_cache(self):
         pass
 

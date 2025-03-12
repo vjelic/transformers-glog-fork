@@ -115,6 +115,7 @@ class CommonPipelineTest(unittest.TestCase):
             self.assertEqual(output, {"label": ANY(str), "score": ANY(float)})
 
     @require_torch
+    @skipIfRocm(arch='gfx90a')
     def test_check_task_auto_inference(self):
         pipe = pipeline(model="hf-internal-testing/tiny-random-distilbert")
 

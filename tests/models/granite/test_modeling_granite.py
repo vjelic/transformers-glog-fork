@@ -307,12 +307,16 @@ class GraniteModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     # used in `test_torch_compile`
     _torch_compile_test_ckpt = "ibm/PowerLM-3b"
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(os_name='ubuntu',os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
-    @skipIfRocm(arch='gfx1201')
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass

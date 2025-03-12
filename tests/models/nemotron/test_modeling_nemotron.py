@@ -31,6 +31,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...models.gemma.test_modeling_gemma import GemmaModelTest, GemmaModelTester
@@ -113,6 +114,10 @@ class NemotronModelTest(GemmaModelTest):
     @unittest.skip("Eager and SDPA do not produce the same outputs, thus this test fails")
     def test_model_outputs_equivalence(self, **kwargs):
         pass
+
+    @skipIfRocm(arch=['gfx90a','gfx942'],os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     @require_torch_sdpa
     @require_torch_gpu

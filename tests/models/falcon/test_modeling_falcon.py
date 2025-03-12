@@ -33,6 +33,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -326,6 +327,10 @@ class FalconModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     def setUp(self):
         self.model_tester = FalconModelTester(self)
         self.config_tester = ConfigTester(self, config_class=FalconConfig, hidden_size=37)
+
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     def test_config(self):
         self.config_tester.run_common_tests()

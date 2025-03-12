@@ -308,16 +308,24 @@ class OlmoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     model_split_percents = [0.5, 0.7, 0.8]
 
     def test_generate_with_static_cache(self):
-        if rocmUtils.is_rocm_skippable(arch='gfx1201'):
+        if rocmUtils.is_rocm_skippable(arch=['gfx1201','gfx1200','gfx1100','gfx90a','gfx942']):
             torch._dynamo.config.capture_dynamic_output_shape_ops = True
         super().test_generate_with_static_cache()
         pass
 
     def test_generate_from_inputs_embeds_with_static_cache(self):
-        if rocmUtils.is_rocm_skippable(arch='gfx1201'):
+        if rocmUtils.is_rocm_skippable(arch=['gfx1201','gfx1200','gfx1100','gfx90a','gfx942']):
             torch._dynamo.config.capture_dynamic_output_shape_ops = True
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
+
+    @skipIfRocm(min_torch_version='2.5')
+    def test_flex_attention_with_grads(self):
+        super().test_flex_attention_with_grads()
+
+    @skipIfRocm(arch='gfx942', os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     def setUp(self):
         self.model_tester = OlmoeModelTester(self)

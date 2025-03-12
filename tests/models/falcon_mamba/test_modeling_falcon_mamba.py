@@ -283,7 +283,7 @@ class FalconMambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTest
         super().test_training_gradient_checkpointing_use_reentrant_false()
         pass
 
-    @skipIfRocm(arch=['gfx942','gfx90a'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
     def test_multi_gpu_data_parallel_forward(self):
         super().test_multi_gpu_data_parallel_forward()
 

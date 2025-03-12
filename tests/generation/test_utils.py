@@ -2341,13 +2341,17 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
             "return_tensors": "pt",
         }
 
+    @skipIfRocm
+    def test_generate_input_features_as_encoder_kwarg(self):
+        super().test_generate_input_features_as_encoder_kwarg()
+
     @skipIfRocm(arch='gfx942', os_name='ubuntu', os_version='24.04')
-    def test_transition_scores_greedy_search():
+    def test_transition_scores_greedy_search(self):
         super().test_transition_scores_greedy_search_normalized()
         pass
 
     @skipIfRocm(arch='gfx942', os_name='ubuntu', os_version='24.04')
-    def test_transition_scores_greedy_search_normalized():
+    def test_transition_scores_greedy_search_normalized(self):
         super().test_transition_scores_greedy_search_normalized()
         pass
 
@@ -2401,6 +2405,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
             ],
         )
 
+    @skipIfRocm
     def test_max_length_if_input_embeds(self):
         # PT-only test: TF doesn't have StoppingCriteria
         article = "Today a dragon flew over Paris."

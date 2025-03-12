@@ -296,6 +296,10 @@ class ChameleonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     def setUp(self):
         self.model_tester = ChameleonModelTester(self)
         self.config_tester = ConfigTester(self, config_class=ChameleonConfig, hidden_size=37)

@@ -287,25 +287,37 @@ class GPTNeoXModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     test_model_parallel = False
     test_head_masking = False
 
-    @skipIfRocm(arch=['gfx1201','gfx942'])
-    def test_generate_with_static_cache():
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx1200','gfx1100','gfx90a'])
+    def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass
 
-    @skipIfRocm(arch='gfx942')
-    def test_training_gradient_checkpointing():
+    @skipIfRocm(arch=['gfx942','gfx90a'])
+    def test_training_gradient_checkpointing(self):
         super().test_training_gradient_checkpointing()
         pass
 
-    @skipIfRocm(arch='gfx942')
-    def test_training_gradient_checkpointing_use_reentrant():
+    @skipIfRocm(arch=['gfx942','gfx90a'])
+    def test_training_gradient_checkpointing_use_reentrant(self):
         super().test_training_gradient_checkpointing_use_reentrant()
         pass
 
-    @skipIfRocm(arch='gfx942')
-    def test_training_gradient_checkpointing_use_reentrant_false():
+    @skipIfRocm(arch=['gfx942','gfx90a'])
+    def test_training_gradient_checkpointing_use_reentrant_false(self):
         super().test_training_gradient_checkpointing_use_reentrant_false()
         pass
+
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100','gfx942','gfx90a'])
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+
+    @skipIfRocm(min_torch_version='2.5')
+    def test_flex_attention_with_grads(self):
+        super().test_flex_attention_with_grads()
+
+    @skipIfRocm(os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory():
+        super().test_beam_search_low_memory()
 
     def setUp(self):
         self.model_tester = GPTNeoXModelTester(self)

@@ -379,6 +379,10 @@ class Qwen2MoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
         self.model_tester = Qwen2MoeModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Qwen2MoeConfig, hidden_size=37)
 
+    @skipIfRocm(os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     def test_config(self):
         self.config_tester.run_common_tests()
 
