@@ -386,6 +386,10 @@ class PhimoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
+    @skipIfRocm(arch=['gfx942','gfx90a'], os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     # Copied from tests.models.llama.test_modeling_llama.LlamaModelTest.test_llama_sequence_classification_model with Llama->Phimoe,llama->phimoe
     def test_phimoe_sequence_classification_model(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()

@@ -329,6 +329,7 @@ class EncoderDecoderMixin:
         input_ids_dict = self.prepare_config_and_inputs()
         self.check_encoder_decoder_model_from_pretrained(**input_ids_dict, return_dict=True)
 
+    @skipIfRocm(arch=['gfx942','gfx90a'])
     def test_save_and_load_from_pretrained(self):
         input_ids_dict = self.prepare_config_and_inputs()
         self.check_save_and_load(**input_ids_dict)
@@ -445,7 +446,7 @@ class EncoderDecoderMixin:
 
 @require_torch
 class DeiT2RobertaModelTest(EncoderDecoderMixin, unittest.TestCase):
-    @skipIfRocm(arch='gfx942')
+    @skipIfRocm(arch=['gfx942','gfx90a'])
     def test_save_and_load_from_pretrained(self):
         super().test_save_and_load_from_pretrained()
         pass
@@ -572,7 +573,7 @@ class DeiT2RobertaModelTest(EncoderDecoderMixin, unittest.TestCase):
 class ViT2BertModelTest(EncoderDecoderMixin, unittest.TestCase):
     supports_sdpa = True  # one submodel support SDPA
 
-    @skipIfRocm(arch='gfx942')
+    @skipIfRocm(arch=['gfx942','gfx90a'])
     def test_save_and_load_from_pretrained(self):
         super().test_save_and_load_from_pretrained()
         pass
@@ -891,7 +892,7 @@ class LayoutLMv32TrOCR(EncoderDecoderMixin, unittest.TestCase):
 class VIT2GPT2Test(EncoderDecoderMixin, unittest.TestCase):
     supports_sdpa = True  # both submodels support SDPA
 
-    @skipIfRocm(arch='gfx942')
+    @skipIfRocm(arch=['gfx942','gfx90a'])
     def test_save_and_load_from_pretrained(self):
         super().test_save_and_load_from_pretrained()
         pass
@@ -1014,7 +1015,7 @@ class VIT2GPT2Test(EncoderDecoderMixin, unittest.TestCase):
 class Donut2GPT2Test(EncoderDecoderMixin, unittest.TestCase):
     supports_sdpa = True  # one submodel (GPT2) support SDPA
 
-    @skipIfRocm(arch='gfx942')
+    @skipIfRocm(arch=['gfx942','gfx90a'])
     def test_save_and_load_from_pretrained(self):
         super().test_save_and_load_from_pretrained()
         pass

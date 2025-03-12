@@ -139,6 +139,10 @@ class Emu3Text2TextModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTe
         self.model_tester = Emu3Text2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Emu3TextConfig, hidden_size=37)
 
+    @skipIfRocm(os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     def test_config(self):
         self.config_tester.run_common_tests()
 

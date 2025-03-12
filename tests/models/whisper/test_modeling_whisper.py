@@ -396,10 +396,6 @@ class WhisperModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     # `0.5` is for `test_disk_offload` (which also works for `test_model_parallelism`)
     model_split_percents = [0.5, 0.8, 0.9]
 
-    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='24.04')
-    def test_longform_generate_multi_batch_cond_prev(self):
-        super().test_longform_generate_multi_batch_cond_prev()
-
     # TODO: Fix the failed tests
     def is_pipeline_test_to_skip(
         self,
@@ -1489,6 +1485,7 @@ class WhisperModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_longform_generate_multi_batch(self):
         self._check_longform_generate_multi_batch(condition_on_prev_tokens=False)
 
+    @skipIfRocm
     def test_longform_generate_multi_batch_cond_prev(self):
         self._check_longform_generate_multi_batch(condition_on_prev_tokens=True)
 

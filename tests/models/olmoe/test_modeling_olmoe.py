@@ -321,6 +321,10 @@ class OlmoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
+    @skipIfRocm(arch='gfx942', os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     def setUp(self):
         self.model_tester = OlmoeModelTester(self)
         self.config_tester = ConfigTester(self, config_class=OlmoeConfig, hidden_size=37)

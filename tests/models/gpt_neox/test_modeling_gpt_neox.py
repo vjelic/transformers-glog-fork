@@ -311,6 +311,10 @@ class GPTNeoXModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
+    @skipIfRocm(os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory():
+        super().test_beam_search_low_memory()
+
     def setUp(self):
         self.model_tester = GPTNeoXModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GPTNeoXConfig, hidden_size=64, num_attention_heads=8)

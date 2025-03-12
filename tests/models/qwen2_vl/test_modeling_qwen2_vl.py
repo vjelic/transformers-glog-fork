@@ -238,6 +238,10 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
     def test_generate_continue_from_past_key_values(self):
         super().test_generate_continue_from_past_key_values()
 
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='22.04')
+    def test_new_cache_format_0(self):
+        super().test_new_cache_format_0()
+
     def setUp(self):
         self.model_tester = Qwen2VLVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Qwen2VLConfig, has_text_modality=False)

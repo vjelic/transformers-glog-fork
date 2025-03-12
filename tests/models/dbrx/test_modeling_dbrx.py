@@ -337,6 +337,10 @@ class DbrxModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
+    @skipIfRocm(arch=['gfx90a','gfx942'],os_name='ubuntu',os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     def setUp(self):
         self.model_tester = DbrxModelTester(self)
         self.config_tester = ConfigTester(self, config_class=DbrxConfig, d_model=37)

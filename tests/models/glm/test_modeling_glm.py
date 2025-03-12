@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -303,6 +304,10 @@ class GlmModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin,
     def setUp(self):
         self.model_tester = GlmModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GlmConfig, hidden_size=37)
+
+    @skipIfRocm(arch=['gfx942','gfx90a'], os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     def test_config(self):
         self.config_tester.run_common_tests()

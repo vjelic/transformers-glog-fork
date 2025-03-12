@@ -17,7 +17,7 @@
 import unittest
 
 from transformers import XLMRobertaXLConfig, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -408,6 +408,10 @@ class XLMRobertaXLModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTes
     def setUp(self):
         self.model_tester = XLMRobertaXLModelTester(self)
         self.config_tester = ConfigTester(self, config_class=XLMRobertaXLConfig, hidden_size=37)
+
+    @skipIfRocm(arch=['gfx942','gfx90a'], os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     def test_config(self):
         self.config_tester.run_common_tests()

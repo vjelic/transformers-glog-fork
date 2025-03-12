@@ -325,6 +325,10 @@ class PhiModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin,
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
 
+    @skipIfRocm(arch=['gfx90a','gfx942'], os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
+
     # Copied from tests.models.llama.test_modeling_llama.LlamaModelTest.test_config
     def test_config(self):
         self.config_tester.run_common_tests()

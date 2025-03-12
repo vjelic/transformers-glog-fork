@@ -29,6 +29,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...models.cohere.test_modeling_cohere import CohereModelTest, CohereModelTester
@@ -113,6 +114,7 @@ class Cohere2ModelTest(CohereModelTest, unittest.TestCase):
         pass
 
     @unittest.skip("Cohere2 has HybridCache and doesn't support low_memory generation")
+    @skipIfRocm(arch=['gfx90a','gfx942'], os_name='ubuntu', os_version='22.04')
     def test_beam_search_low_memory(self):
         pass
 

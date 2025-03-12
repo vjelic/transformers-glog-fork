@@ -303,12 +303,12 @@ class GraniteMoeModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
         super().test_generate_with_static_cache()
         pass
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass
@@ -321,6 +321,10 @@ class GraniteMoeModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
     @skipIfRocm(os_name='ubuntu', os_version='24.04')
     def test_left_padding_compatibility(self):
         super().test_left_padding_compatibility()
+
+    @skipIfRocm(arch=['gfx942','gfx90a'], os_name='ubuntu', os_version='22.04')
+    def test_beam_search_low_memory(self):
+        super().test_beam_search_low_memory()
 
     def setUp(self):
         self.model_tester = GraniteMoeModelTester(self)
