@@ -720,12 +720,12 @@ class InstructBlipForConditionalGenerationDecoderOnlyTest(ModelTesterMixin, Gene
             # They should result in very similar logits
             torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
-    @unittest.skip(
-        "InstructBLIP cannot generate only from input ids, and requires pixel values in all cases to be present"
-    )
-    @parameterized.expand([("greedy", 1), ("beam search", 2)])
-    def test_generate_from_inputs_embeds(self, _, num_beams):
-        pass
+    #@unittest.skip(
+    #    "InstructBLIP cannot generate only from input ids, and requires pixel values in all cases to be present"
+    #)
+    #@parameterized.expand([("greedy", 1), ("beam search", 2)])
+    #def test_generate_from_inputs_embeds(self, _, num_beams):
+    #    pass
 
     @require_torch_sdpa
     def test_sdpa_can_dispatch_composite_models(self):

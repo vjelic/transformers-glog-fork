@@ -553,7 +553,7 @@ class MoshiTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
         super().test_generate_without_input_ids()
         pass
 
-     @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100','gfx90a','gfx942'])
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100','gfx90a','gfx942'])
     def test_offloaded_cache_implementation_0_offloaded(self):
         super().test_offloaded_cache_implementation_0_offloaded()
 

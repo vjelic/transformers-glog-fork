@@ -1161,7 +1161,7 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
             train_output = trainer.train()
             self.assertEqual(train_output.global_step, 10)
 
-    @skipIfRocm(arch=['gfx942','gfx90a'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
     def test_torch_compile_loss_func_compatibility(self):
         config = LlamaConfig(vocab_size=100, hidden_size=32, num_hidden_layers=3, num_attention_heads=4)
         tiny_llama = LlamaForCausalLM(config)

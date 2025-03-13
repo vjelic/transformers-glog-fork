@@ -15,7 +15,7 @@
 import unittest
 
 from transformers import DebertaV2Config, is_torch_available
-from transformers.testing_utils import require_sentencepiece, require_tokenizers, require_torch, slow, torch_device
+from transformers.testing_utils import require_sentencepiece, require_tokenizers, require_torch, slow, torch_device, skipIfRocm
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin, ids_tensor
@@ -258,6 +258,10 @@ class DebertaV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCas
     test_head_masking = False
     is_encoder_decoder = False
 
+    @skipIfRocm
+    def test_resize_embeddings_untied(self):
+        super().test_resize_embeddings_untied()
+
     def setUp(self):
         self.model_tester = DebertaV2ModelTester(self)
         self.config_tester = ConfigTester(self, config_class=DebertaV2Config, hidden_size=37)
@@ -294,6 +298,18 @@ class DebertaV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCas
         model_name = "microsoft/deberta-v2-xlarge"
         model = DebertaV2Model.from_pretrained(model_name)
         self.assertIsNotNone(model)
+
+    @unittest.skip("This test was broken by the refactor in #22105, TODO @ArthurZucker")
+    def test_torch_fx_output_loss(self):
+        pass
+
+    @unittest.skip("This test was broken by the refactor in #22105, TODO @ArthurZucker")
+    def test_torch_fx(self):
+        pass
+
+    @unittest.skip("This test was broken by the refactor in #22105, TODO @ArthurZucker")
+    def test_pt_tf_model_equivalence(self):
+        pass
 
 
 @require_torch

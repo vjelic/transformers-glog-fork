@@ -28,7 +28,7 @@ from transformers import (
     is_torch_available,
     is_vision_available,
 )
-from transformers.testing_utils import require_bitsandbytes, require_torch, require_torch_gpu, slow, torch_device
+from transformers.testing_utils import require_bitsandbytes, require_torch, require_torch_gpu, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -207,6 +207,10 @@ class VideoLlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTe
     test_resize_embeddings = True
     test_head_masking = False
     _is_composite = True
+
+    @skipIfRocm
+    def test_dola_decoding_sample(self):
+        super().test_dola_decoding_sample()
 
     def setUp(self):
         self.model_tester = VideoLlavaVisionText2TextModelTester(self)

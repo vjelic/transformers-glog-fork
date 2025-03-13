@@ -17,7 +17,8 @@
 import inspect
 import tempfile
 import unittest
-import pytest 
+import pytest
+import parameterized
 
 import numpy as np
 import requests
@@ -767,10 +768,11 @@ class Blip2ForConditionalGenerationDecoderOnlyTest(ModelTesterMixin, GenerationT
             # They should result in very similar logits
             torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
-    @unittest.skip("BLIP2 cannot generate only from input ids, and requires pixel values in all cases to be present")
-    @parameterized.expand([("greedy", 1), ("beam search", 2)])
-    def test_generate_from_inputs_embeds(self, _, num_beams):
-        pass
+    #@unittest.skip("BLIP2 cannot generate only from input ids, and requires pixel values in all cases to be present")
+    #@parameterized.expand([("greedy", 1), ("beam search", 2)])
+    #@skipIfRocm
+    #def test_generate_from_inputs_embeds(self, _, num_beams):
+    #    pass
 
 
 # this class is based on `T5ModelTester` found in tests/models/t5/test_modeling_t5.py
