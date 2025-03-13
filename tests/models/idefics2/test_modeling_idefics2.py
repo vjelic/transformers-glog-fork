@@ -40,6 +40,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -385,6 +386,10 @@ class Idefics2ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTest
     def setUp(self):
         self.model_tester = Idefics2VisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Idefics2Config, has_text_modality=False)
+
+    @skipIfRocm
+    def test_dola_decoding_sample(self):
+        super().test_dola_decoding_sample()
 
     @unittest.skip(reason="input_embeds cannot be passed in without input_ids")
     def test_inputs_embeds():

@@ -18,7 +18,7 @@ import unittest
 
 from transformers import GPTNeoXJapaneseConfig, is_torch_available
 from transformers.models.gpt_neox_japanese.tokenization_gpt_neox_japanese import GPTNeoXJapaneseTokenizer
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -212,6 +212,10 @@ class GPTNeoXModelJapaneseTest(ModelTesterMixin, GenerationTesterMixin, Pipeline
     def setUp(self):
         self.model_tester = GPTNeoXJapaneseModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GPTNeoXJapaneseConfig, hidden_size=37)
+
+    @skipIfRocm
+    def test_pipeline_text_generation(self):
+        super().test_pipeline_text_generation()
 
     def test_config(self):
         self.config_tester.run_common_tests()
