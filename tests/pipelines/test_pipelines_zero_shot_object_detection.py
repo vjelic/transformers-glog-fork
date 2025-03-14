@@ -22,6 +22,7 @@ from transformers.testing_utils import (
     require_torch,
     require_vision,
     slow,
+    skipIfRocm
 )
 
 from .test_pipelines_common import ANY
@@ -89,6 +90,7 @@ class ZeroShotObjectDetectionPipelineTests(unittest.TestCase):
         pass
 
     @require_torch
+    @skipIfRocm
     def test_small_model_pt(self):
         object_detector = pipeline(
             "zero-shot-object-detection", model="hf-internal-testing/tiny-random-owlvit-object-detection"
