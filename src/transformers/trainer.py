@@ -2457,6 +2457,8 @@ class Trainer:
         if args.eval_on_start:
             self._evaluate(trial, ignore_keys_for_eval, skip_scheduler=True)
 
+        start_train_stable_time = 0
+        total_batched_samples = 0
         for epoch in range(epochs_trained, num_train_epochs):
             epoch_dataloader = train_dataloader
             if hasattr(epoch_dataloader, "set_epoch"):
@@ -2533,6 +2535,9 @@ class Trainer:
                     elif steps_trained_progress_bar is not None:
                         steps_trained_progress_bar.close()
                         steps_trained_progress_bar = None
+
+                    if (self.state.global_step == args.stable_train_warmup_steps):
+                        start_train_stable_time = time.time()
 
                     if step % args.gradient_accumulation_steps == 0:
                         self.control = self.callback_handler.on_step_begin(args, self.state, self.control)
@@ -2671,13 +2676,11 @@ class Trainer:
         effective_global_step = max(self.state.global_step, 0.001)  # Avoid ZeroDivisionError
         train_loss = self._total_loss_scalar / effective_global_step
 
-        metrics = speed_metrics(
-            "train",
-            start_time,
-            num_samples=num_train_samples,
-            num_steps=self.state.max_steps,
-            num_tokens=num_train_tokens,
-        )
+        metrics = speed_metrics("train", start_time, num_samples=num_train_samples, num_steps=self.state.max_steps,num_tokens=num_train_tokens,)
+
+        stable_train_samples = num_train_samples - args.stable_train_warmup_steps*total_train_batch_size
+        stable_train_metrics = speed_metrics("stable_train", start_train_stable_time, stable_train_samples)
+
         self.store_flos()
         metrics["total_flos"] = self.state.total_flos
         metrics["train_loss"] = train_loss
@@ -2687,6 +2690,8 @@ class Trainer:
         self._memory_tracker.stop_and_update_metrics(metrics)
 
         self.log(metrics)
+
+        self.log(stable_train_metrics)
 
         run_dir = self._get_output_dir(trial)
         checkpoints_sorted = self._sorted_checkpoints(use_mtime=False, output_dir=run_dir)

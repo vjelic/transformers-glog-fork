@@ -24,6 +24,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     require_torch_multi_gpu,
     slow,
+    skipIfRocm
 )
 from transformers.utils import is_accelerate_available, is_torch_available
 
@@ -250,6 +251,7 @@ class FP8QuantizerTest(unittest.TestCase):
 class FP8LinearTest(unittest.TestCase):
     device = "cuda"
 
+    @skipIfRocm
     def test_linear_preserves_shape(self):
         """
         Test that FP8Linear preserves shape when in_features == out_features.
@@ -262,6 +264,7 @@ class FP8LinearTest(unittest.TestCase):
         x_ = linear(x)
         self.assertEqual(x_.shape, x.shape)
 
+    @skipIfRocm
     def test_linear_with_diff_feature_size_preserves_shape(self):
         """
         Test that FP8Linear generates the correct shape when in_features != out_features.

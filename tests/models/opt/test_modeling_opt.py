@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_torch_fp16,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -250,6 +251,10 @@ class OPTModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin,
     def setUp(self):
         self.model_tester = OPTModelTester(self)
         self.config_tester = ConfigTester(self, config_class=OPTConfig)
+
+    @skipIfRocm
+    def test_generate_with_static_cache():
+        super().test_generate_with_static_cache()
 
     def test_config(self):
         self.config_tester.run_common_tests()

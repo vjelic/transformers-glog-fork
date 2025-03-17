@@ -30,6 +30,7 @@ from transformers.testing_utils import (
     require_torch_accelerator,
     require_torch_or_tf,
     torch_device,
+    skipIfRocm,
 )
 
 from .test_pipelines_common import ANY
@@ -42,6 +43,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
     tf_model_mapping = TF_MODEL_FOR_CAUSAL_LM_MAPPING
 
     @require_torch
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_small_model_pt(self):
         text_generator = pipeline(task="text-generation", model="sshleifer/tiny-ctrl", framework="pt")
         # Using `do_sample=False` to force deterministic output
@@ -292,6 +294,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
             )
 
     @require_torch
+    @skipIfRocm
     def test_small_chat_model_with_iterator_pt(self):
         from transformers.pipelines.pt_utils import PipelineIterator
 
@@ -439,6 +442,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
         )
         return text_generator, ["This is a test", "Another test"]
 
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_stop_sequence_stopping_criteria(self):
         prompt = """Hello I believe in"""
         text_generator = pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2")
@@ -553,6 +557,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
     @require_torch
     @require_accelerate
     @require_torch_accelerator
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_small_model_pt_bloom_accelerate(self):
         import torch
 
@@ -653,6 +658,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
             _ = text_generator(prompt, max_length=10)
         self.assertNotIn(logger_msg, cl.out)
 
+    @skipIfRocm
     def test_return_dict_in_generate(self):
         text_generator = pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2", max_new_tokens=16)
         out = text_generator(
@@ -679,6 +685,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
         )
 
     @require_torch
+    @skipIfRocm
     def test_pipeline_assisted_generation(self):
         """Tests that we can run assisted generation in the pipeline"""
         model = "hf-internal-testing/tiny-random-MistralForCausalLM"

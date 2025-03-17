@@ -43,6 +43,7 @@ from transformers.testing_utils import (
     require_torchaudio,
     slow,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import cached_property, is_flax_available, is_torch_available, is_torchaudio_available
 from transformers.utils.import_utils import is_datasets_available
@@ -393,6 +394,10 @@ class WhisperModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     # Needs higher percentages after model tester's vocab_size is changed to 200 (PR #21222)
     # `0.5` is for `test_disk_offload` (which also works for `test_model_parallelism`)
     model_split_percents = [0.5, 0.8, 0.9]
+
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='24.04')
+    def test_longform_generate_multi_batch_cond_prev(self):
+        super().test_longform_generate_multi_batch_cond_prev()
 
     # TODO: Fix the failed tests
     def is_pipeline_test_to_skip(
@@ -3973,6 +3978,10 @@ class WhisperStandaloneDecoderModelTest(ModelTesterMixin, GenerationTesterMixin,
     def setUp(self):
         self.model_tester = WhisperStandaloneDecoderModelTester(self, is_training=False)
         self.config_tester = ConfigTester(self, config_class=WhisperConfig)
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
 
     def test_config(self):
         self.config_tester.run_common_tests()

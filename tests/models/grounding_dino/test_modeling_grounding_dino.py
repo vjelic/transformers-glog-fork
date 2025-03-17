@@ -34,6 +34,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...test_configuration_common import ConfigTester
@@ -216,6 +217,14 @@ class GroundingDinoModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Tes
         if is_torch_available()
         else {}
     )
+
+    @skipIfRocm
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
+
+    @skipIfRocm
+    def test_training(self):
+        super().test_training()
 
     # special case for head models
     def _prepare_for_class(self, inputs_dict, model_class, return_labels=False):

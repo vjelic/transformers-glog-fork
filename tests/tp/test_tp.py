@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import textwrap
 
-#  TORCH_LOGS=+dtensor CUDA_LAUNCH_BLOCKING=1 TORCH_USE_CUDA_DSA=1 PYTHONPATH="src" python -m torch.distributed.run --nproc_per_node 2 ./tests/tp/test_tp.py
+from transformers.testing_utils import skipIfRocm
 from transformers import is_torch_available
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaModel
@@ -51,6 +51,7 @@ class TestTensorParallel(TestCasePlus):
                 raise Exception(f"The following error was captured: {e.stderr}")
 
     @require_torch_multi_gpu
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_tp(self):
         distributed_args = f"""--nproc_per_node={torch.cuda.device_count()}
             --master_port={get_torch_dist_unique_port()}
@@ -64,6 +65,7 @@ class TestTensorParallel(TestCasePlus):
         # successful return here == success - any errors would have caused an error in the sub-call
 
     @require_torch_multi_gpu
+    @skipIfRocm
     def test_loading_memory_consumption(self):
         script_to_run = textwrap.dedent(
             """

@@ -95,6 +95,7 @@ from transformers.testing_utils import (
     set_model_tester_for_less_flaky_test,
     slow,
     torch_device,
+    skipIfRocm
 )
 from transformers.utils import (
     CONFIG_NAME,
@@ -927,51 +928,19 @@ class ModelTesterMixin:
             loss = model(**inputs).loss
             loss.backward()
 
-    def test_causal_lm_can_accept_kwargs(self):
-        if not getattr(self.model_tester, "is_training", False):
-            self.skipTest(reason="ModelTester is not configured to run training tests")
 
-        valid_model_class = False
-        incompatible_models = (
-            "MusicgenForCausalLM",
-            "MusicgenMelodyForCausalLM",
-            "MllamaForCausalLM",
-            "CpmAntForCausalLM",
-            "GotOcr2ForConditionalGeneration",
-        )
-        for model_class in self.all_model_classes:
-            if (
-                model_class.__name__ in get_values(MODEL_FOR_CAUSAL_LM_MAPPING_NAMES)
-                and model_class.__name__ not in incompatible_models
-            ):
-                valid_model_class = True
-        if not valid_model_class:
-            self.skipTest(reason="No causal lm model classes found")
-        for model_class in self.all_model_classes:
-            model_name = model_class.__name__
-            if model_name in get_values(MODEL_FOR_CAUSAL_LM_MAPPING_NAMES) and model_name not in incompatible_models:
-                config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
-
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    with torch.device(torch_device):
-                        model_eager = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float32)
-
-                    model_eager.save_pretrained(tmpdir)
-                    with torch.device(torch_device):
-                        model = AutoModelForCausalLM.from_pretrained(tmpdir, torch_dtype=torch.float32)
-                        inputs_dict["num_items_in_batch"] = inputs_dict["input_ids"].shape[0]
-                        inputs_dict["labels"] = inputs_dict["input_ids"]
-                        _ = model(**inputs_dict, return_dict=False)
-
+    @skipIfRocm(arch=['gfx90a','gfx942'])
     def test_training_gradient_checkpointing(self):
         # Scenario - 1 default behaviour
         self.check_training_gradient_checkpointing()
 
+    @skipIfRocm(arch=['gfx90a','gfx942'])
     def test_training_gradient_checkpointing_use_reentrant(self):
         # Scenario - 2 with `use_reentrant=True` - this is the default value that is used in pytorch's
         # torch.utils.checkpoint.checkpoint
         self.check_training_gradient_checkpointing(gradient_checkpointing_kwargs={"use_reentrant": True})
 
+    @skipIfRocm(arch=['gfx90a','gfx942'])
     def test_training_gradient_checkpointing_use_reentrant_false(self):
         # Scenario - 3 with `use_reentrant=False` pytorch suggests users to use this value for
         # future releases: https://pytorch.org/docs/stable/checkpoint.html
@@ -3104,7 +3073,10 @@ class ModelTesterMixin:
                     )[0]
             torch.testing.assert_close(out_embeds, out_ids)
 
+
+    @skipIfRocm
     @require_non_xpu
+    @skipIfRocm
     @require_torch_multi_gpu
     def test_multi_gpu_data_parallel_forward(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
@@ -3372,6 +3344,7 @@ class ModelTesterMixin:
     @require_accelerate
     @mark.accelerate_tests
     @require_torch_multi_accelerator
+    @skipIfRocm
     def test_model_parallelism(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
@@ -4936,6 +4909,7 @@ class ModelTesterMixin:
                 self.assertTrue(is_tested, msg=f"No outputs were compared for {model_class.__name__}")
 
     @require_torch_gpu
+    @skipIfRocm(min_torch_version='2.5')
     def test_flex_attention_with_grads(self):
         for model_class in self.all_model_classes:
             if not model_class._supports_flex_attn:

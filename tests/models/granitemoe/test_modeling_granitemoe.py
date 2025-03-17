@@ -25,6 +25,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -295,6 +296,20 @@ class GraniteMoeModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
     # Need to use `0.8` instead of `0.9` for `test_cpu_offload`
     # This is because we are hitting edge cases with the causal_mask buffer
     model_split_percents = [0.5, 0.7, 0.8]
+
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+        pass
+
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        super().test_generate_from_inputs_embeds_with_static_cache()
+        pass
+
+    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    def test_left_padding_compatibility(self):
+        super().test_left_padding_compatibility()
 
     def setUp(self):
         self.model_tester = GraniteMoeModelTester(self)

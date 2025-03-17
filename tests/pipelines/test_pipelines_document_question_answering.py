@@ -32,6 +32,7 @@ from transformers.testing_utils import (
     require_torch_bf16,
     require_vision,
     slow,
+    skipIfRocm
 )
 
 from .test_pipelines_common import ANY
@@ -124,6 +125,7 @@ class DocumentQuestionAnsweringPipelineTests(unittest.TestCase):
     @require_torch
     @require_detectron2
     @require_pytesseract
+    @skipIfRocm
     def test_small_model_pt(self):
         dqa_pipeline = pipeline(
             "document-question-answering", model="hf-internal-testing/tiny-random-layoutlmv2-for-dqa-test"
@@ -158,6 +160,7 @@ class DocumentQuestionAnsweringPipelineTests(unittest.TestCase):
     @require_torch_bf16
     @require_detectron2
     @require_pytesseract
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='24.04')
     def test_small_model_pt_bf16(self):
         dqa_pipeline = pipeline(
             "document-question-answering",

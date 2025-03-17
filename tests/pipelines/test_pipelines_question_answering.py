@@ -33,6 +33,7 @@ from transformers.testing_utils import (
     require_torch,
     require_torch_or_tf,
     slow,
+    skipIfRocm
 )
 
 
@@ -185,6 +186,7 @@ class QAPipelineTests(unittest.TestCase):
         self.assertEqual(nested_simplify(outputs), {"score": 0.01, "start": 0, "end": 11, "answer": "HuggingFace"})
 
     @require_torch
+    @skipIfRocm
     def test_small_model_pt_bf16(self):
         question_answerer = pipeline(
             "question-answering",

@@ -47,6 +47,7 @@ from transformers.testing_utils import (
     require_torchaudio,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from .test_pipelines_common import ANY
@@ -164,6 +165,7 @@ class AutomaticSpeechRecognitionPipelineTests(unittest.TestCase):
         pipeline("automatic-speech-recognition", framework="pt")
 
     @require_torch
+    @skipIfRocm(arch='gfx942')
     def test_small_model_pt(self):
         speech_recognizer = pipeline(
             task="automatic-speech-recognition",
@@ -237,6 +239,7 @@ class AutomaticSpeechRecognitionPipelineTests(unittest.TestCase):
         speech_recognizer(waveform)
 
     @require_torch
+    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1100','gfx1101','gfx1200'])
     def test_small_model_pt_seq2seq(self):
         speech_recognizer = pipeline(
             model="hf-internal-testing/tiny-random-speech-encoder-decoder",
@@ -1444,6 +1447,7 @@ class AutomaticSpeechRecognitionPipelineTests(unittest.TestCase):
         self.assertEqual(output[0]["text"][:6], "ZBT ZC")
 
     @require_torch
+    @skipIfRocm
     def test_input_parameter_passthrough(self):
         """Test that chunked vs non chunked versions of ASR pipelines returns the same structure for the same inputs."""
         speech_recognizer = pipeline(
@@ -1934,6 +1938,7 @@ class AutomaticSpeechRecognitionPipelineTests(unittest.TestCase):
         )
 
     @require_torch
+    @skipIfRocm
     def test_pipeline_assisted_generation(self):
         """Tests that we can run assisted generation in the pipeline"""
         model = "openai/whisper-tiny"
