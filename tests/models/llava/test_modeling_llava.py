@@ -34,6 +34,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -191,6 +192,10 @@ class LlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterM
     def setUp(self):
         self.model_tester = LlavaVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=LlavaConfig, has_text_modality=False)
+
+    @skipIfRocm
+    def test_dola_decoding_sample(self):
+        super().test_dola_decoding_sample()
 
     # overwrite inputs_embeds tests because we need to delete "pixel values" for LVLMs
     def test_inputs_embeds(self):

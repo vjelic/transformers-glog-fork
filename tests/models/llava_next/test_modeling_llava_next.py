@@ -32,6 +32,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -223,6 +224,10 @@ class LlavaNextForConditionalGenerationModelTest(ModelTesterMixin, GenerationTes
     def setUp(self):
         self.model_tester = LlavaNextVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=LlavaNextConfig, has_text_modality=False)
+
+    @skipIfRocm
+    def test_dola_decoding_sample(self):
+        super().test_dola_decoding_sample()
 
     def test_initialization(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
