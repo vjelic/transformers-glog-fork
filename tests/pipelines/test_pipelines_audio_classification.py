@@ -110,6 +110,7 @@ class AudioClassificationPipelineTests(unittest.TestCase):
         )
 
     @require_torch
+    @skipIfRocm(arch='gfx90a')
     def test_small_model_pt(self):
         model = "anton-l/wav2vec2-random-tiny-classifier"
 

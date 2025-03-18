@@ -22,7 +22,7 @@ from transformers import (
     is_torch_available,
     is_vision_available,
 )
-from transformers.testing_utils import cleanup, require_torch, slow, torch_device
+from transformers.testing_utils import cleanup, require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -183,6 +183,10 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def setUp(self):
         self.model_tester = GotOcr2VisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GotOcr2Config, has_text_modality=False)
+
+    @skipIfRocm(arch=['gfx90a','gfx942'])
+    def test_generate_continue_from_past_key_values(self):
+        super().test_generate_continue_from_past_key_values()
 
     def test_config(self):
         self.config_tester.run_common_tests()

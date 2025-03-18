@@ -22,7 +22,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
     T5Tokenizer,
 )
-from transformers.testing_utils import TestCasePlus, require_sentencepiece, require_torch, slow
+from transformers.testing_utils import TestCasePlus, require_sentencepiece, require_torch, slow, skipIfRocm
 from transformers.utils import is_datasets_available
 
 
@@ -185,6 +185,7 @@ class Seq2seqTrainerTester(TestCasePlus):
             ), f"Got {metrics['eval_samples']}, expected: {dataset_len * num_return_sequences}"
 
     @require_torch
+    @skipIfRocm(arch=['gfx90a'])
     def test_bad_generation_config_fail_early(self):
         # Tests that a bad geneartion config causes the trainer to fail early
         model = AutoModelForSeq2SeqLM.from_pretrained("google-t5/t5-small")

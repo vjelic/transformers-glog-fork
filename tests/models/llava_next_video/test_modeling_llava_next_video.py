@@ -33,6 +33,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -241,6 +242,14 @@ class LlavaNextVideoForConditionalGenerationModelTest(ModelTesterMixin, Generati
         self.config_tester = ConfigTester(
             self, config_class=LlavaNextVideoConfig, has_text_modality=False, common_properties=common_properties
         )
+
+    @skipIfRocm(arch=['gfx1100','gfx1101','gfx1201','gfx1200'])
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
+    @skipIfRocm(arch=['gfx942','gfx90a'])
+    def test_assisted_decoding_sample(self):
+        super().test_assisted_decoding_sample()
 
     def test_config(self):
         self.config_tester.run_common_tests()

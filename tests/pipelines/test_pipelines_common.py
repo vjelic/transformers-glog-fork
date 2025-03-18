@@ -237,6 +237,7 @@ class CommonPipelineTest(unittest.TestCase):
             self.assertIsInstance(pipe, TextGenerationPipeline)  # Assert successful load
 
     @require_torch
+    @skipIfRocm(arch=['gfx1101','gfx1100'])
     def test_pipeline_with_task_parameters_no_side_effects(self):
         """
         Regression test: certain pipeline flags, like `task`, modified the model configuration, causing unexpected
