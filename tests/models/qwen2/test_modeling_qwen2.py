@@ -360,7 +360,7 @@ class Qwen2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
 
-    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    @skipIfRocm(min_torch_version='2.5')
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 

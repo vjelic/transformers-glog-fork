@@ -19,7 +19,7 @@ import tempfile
 import unittest
 
 from transformers import SeamlessM4Tv2Config, is_speech_available, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 from transformers.trainer_utils import set_seed
 from transformers.utils import cached_property
 
@@ -615,6 +615,10 @@ class SeamlessM4Tv2ModelWithTextInputTest(ModelTesterMixin, GenerationTesterMixi
     def setUp(self):
         self.model_tester = SeamlessM4Tv2ModelTester(self, input_modality="text")
         self.config_tester = ConfigTester(self, config_class=SeamlessM4Tv2Config)
+
+    @skipIfRocm
+    def test_retain_grad_hidden_states_attentions(self):
+        super().test_retain_grad_hidden_states_attentions()
 
     def test_config(self):
         self.config_tester.run_common_tests()

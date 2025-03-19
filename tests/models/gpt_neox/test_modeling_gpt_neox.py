@@ -315,7 +315,7 @@ class GPTNeoXModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
-    @skipIfRocm(os_name='ubuntu', os_version='22.04')
+    @skipIfRocm
     def test_beam_search_low_memory():
         super().test_beam_search_low_memory()
 

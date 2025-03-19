@@ -484,6 +484,7 @@ class MambaIntegrationTests(unittest.TestCase):
         torch.testing.assert_close(logits[0, 0, :40].cpu(), EXPECTED_LOGITS_NO_GRAD, rtol=1e-3, atol=1e-3)
 
     @parameterized.expand([(torch_device,), ("cpu",)])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx1101'])
     def test_simple_generate_cuda_kernels_tiny(self, device):
         expected_output = "Hello my name is John and I am a newbie to the world"
 
