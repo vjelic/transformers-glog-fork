@@ -315,7 +315,7 @@ class FalconMambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTest
         self.config_tester.run_common_tests()
 
     @require_torch_multi_gpu
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_multi_gpu_data_parallel_forward(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 

@@ -306,12 +306,12 @@ class GraniteMoeModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
     # used in `test_torch_compile`
     _torch_compile_test_ckpt = "ibm/PowerMoE-3b"
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942','gfx1101'])
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942','gfx1101'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass

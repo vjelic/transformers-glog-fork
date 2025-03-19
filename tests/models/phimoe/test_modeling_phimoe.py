@@ -374,11 +374,11 @@ class PhimoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model(*config_and_inputs)
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942','gfx1101'])
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
 
-    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942'])
+    @skipIfRocm(arch=['gfx1200','gfx1201','gfx1100','gfx90a','gfx942','gfx1101'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 

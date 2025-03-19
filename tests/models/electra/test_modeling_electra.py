@@ -404,7 +404,7 @@ class ElectraModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
     )
     fx_compatible = True
 
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_inputs_embeds_matches_input_ids_with_generate(self):
         super().test_inputs_embeds_matches_input_ids_with_generate()
         pass

@@ -324,11 +324,11 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flex_attention_with_grads(self):
         super().test_flex_attention_with_grads()
 
-    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 
-    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
 

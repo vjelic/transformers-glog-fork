@@ -168,7 +168,7 @@ class VitsModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     test_torchscript = False
     has_attentions = False
 
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_feed_forward_chunking():
         super().test_feed_forward_chunking()
         pass

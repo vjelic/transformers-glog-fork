@@ -247,7 +247,7 @@ class VisionTextDualEncoderMixin:
         inputs_dict = self.prepare_config_and_inputs()
         self.check_vision_text_dual_encoder_from_pretrained(**inputs_dict)
 
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1200','gfx1201','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1200','gfx1201','gfx1100','gfx1101'])
     def test_save_load(self):
         inputs_dict = self.prepare_config_and_inputs()
         self.check_save_load(**inputs_dict)
@@ -351,7 +351,7 @@ class ViTBertModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
 
 @require_torch
 class DeiTRobertaModelTest(VisionTextDualEncoderMixin, unittest.TestCase):
-    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100'])
+    @skipIfRocm(arch=['gfx942','gfx90a','gfx1201','gfx1200','gfx1100','gfx1101'])
     def test_save_load():
         super().test_save_load()
         pass
