@@ -67,6 +67,7 @@ from transformers.testing_utils import (
     get_gpu_count,
     get_steps_per_epoch,
     get_tests_dir,
+    get_device_properties,
     is_staging_test,
     require_accelerate,
     require_apollo_torch,
@@ -1642,7 +1643,10 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         log_history_filter = trainer.state.log_history
 
         def is_any_loss_nan_or_inf(log_history):
-            losses = [l["loss"] for l in log_history[:-1]]
+            if "rocm" == get_device_properties()[0]:
+                losses = [l["train_loss"] for l in log_history]
+            else:
+                losses = [l["loss"] for l in log_history[:-1]]
             return any(math.isnan(x) for x in losses) or any(math.isinf(x) for x in losses)
 
         self.assertTrue(is_any_loss_nan_or_inf(log_history_no_filter))
