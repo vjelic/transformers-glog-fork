@@ -27,7 +27,7 @@ from transformers import (
     is_vision_available,
     pipeline,
 )
-from transformers.testing_utils import is_pipeline_test, nested_simplify, require_tf, require_torch
+from transformers.testing_utils import is_pipeline_test, nested_simplify, require_tf, require_torch, skipIfRocm
 
 
 if is_torch_available():
@@ -63,6 +63,7 @@ class ImageFeatureExtractionPipelineTests(unittest.TestCase):
             [-1.417, -0.392, -1.264, -1.196, 1.648, 0.885, 0.56, -0.606, -1.175, 0.823, 1.912, 0.081, -0.053, 1.119, -0.062, -1.757, -0.571, 0.075, 0.959, 0.118, 1.201, -0.672, -0.498, 0.364, 0.937, -1.623, 0.228, 0.19, 1.697, -1.115, 0.583, -0.981])  # fmt: skip
 
     @require_torch
+    @skipIfRocm
     def test_small_model_w_pooler_pt(self):
         feature_extractor = pipeline(
             task="image-feature-extraction", model="hf-internal-testing/tiny-random-vit-w-pooler", framework="pt"
