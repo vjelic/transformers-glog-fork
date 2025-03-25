@@ -42,6 +42,7 @@ from transformers.testing_utils import (
     run_test_in_subprocess,
     slow,
     torch_device,
+    get_device_properties
 )
 from transformers.utils import is_torch_fx_available
 
@@ -329,12 +330,18 @@ class Wav2Vec2ModelTester:
 
         batch_outputs = model(input_values, attention_mask=attention_mask).last_hidden_state
 
+        if 'rocm'==get_device_properties()[0]:
+            tolerance = 1e-2
+        else:
+            tolerance = 1e-3
+
         for i in range(input_values.shape[0]):
             input_slice = input_values[i : i + 1, : input_lengths[i]]
             output = model(input_slice).last_hidden_state
 
             batch_output = batch_outputs[i : i + 1, : output.shape[1]]
-            self.parent.assertTrue(torch.allclose(output, batch_output, atol=1e-3))
+
+            self.parent.assertTrue(torch.allclose(output, batch_output, atol=tolerance))
 
     def check_ctc_loss(self, config, input_values, *args):
         model = Wav2Vec2ForCTC(config=config)

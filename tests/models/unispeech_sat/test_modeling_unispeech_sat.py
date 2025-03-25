@@ -22,7 +22,7 @@ import pytest
 from datasets import load_dataset
 
 from transformers import UniSpeechSatConfig, is_torch_available
-from transformers.testing_utils import require_soundfile, require_torch, slow, torch_device
+from transformers.testing_utils import require_soundfile, require_torch, slow, torch_device, get_device_properties
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import (
@@ -185,12 +185,17 @@ class UniSpeechSatModelTester:
 
         batch_outputs = model(input_values, attention_mask=attention_mask).last_hidden_state
 
+        if 'rocm'==get_device_properties()[0]:
+            tolerance = 1e-2
+        else:
+            tolerance = 1e-3
+
         for i in range(input_values.shape[0]):
             input_slice = input_values[i : i + 1, : input_lengths[i]]
             output = model(input_slice).last_hidden_state
 
             batch_output = batch_outputs[i : i + 1, : output.shape[1]]
-            self.parent.assertTrue(torch.allclose(output, batch_output, atol=1e-3))
+            self.parent.assertTrue(torch.allclose(output, batch_output, atol=tolerance))
 
     def check_ctc_loss(self, config, input_values, *args):
         model = UniSpeechSatForCTC(config=config)

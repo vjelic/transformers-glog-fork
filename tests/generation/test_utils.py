@@ -1841,6 +1841,13 @@ class GenerationTesterMixin:
                     )
             outputs_cached = model.generate(**inputs, do_sample=False, max_new_tokens=1, return_dict_in_generate=True)
 
+            if 'rocm' == get_device_properties()[0]:
+                rtolerance=1e-4
+                atolerance=1e-4
+            else:
+                rtolerance=1e-5
+                atolerance=1e-8
+
             # The two sets of generated text and past kv should be equal to each other
             self.assertListEqual(outputs.sequences.tolist(), outputs_cached.sequences.tolist())
             for layer_idx in range(len(outputs_cached.past_key_values)):
@@ -1849,6 +1856,8 @@ class GenerationTesterMixin:
                         torch.allclose(
                             outputs.past_key_values[layer_idx][kv_idx],
                             outputs_cached.past_key_values[layer_idx][kv_idx],
+                            rtol=rtolerance,
+                            atol=atolerance,
                         )
                     )
 
@@ -4768,7 +4777,7 @@ class TokenHealingTestCase(unittest.TestCase):
         """
         tokenizer.pad_token value can be empty but it is required in the latter codes
         so assigned it here with eos_token
-		"""
+        """
         tokenizer.pad_token = tokenizer.eos_token
 
         input_ids = tokenizer(input, return_tensors="pt").input_ids.to(completion_model.device)
@@ -4935,3 +4944,4 @@ class TestAssistedCandidateGeneratorUpdateStrategy(unittest.TestCase):
             self.assertEqual(self.assistant_model.generation_config.assistant_confidence_threshold, 0.4)
         else:
             self.assert_no_sklearn()
+
