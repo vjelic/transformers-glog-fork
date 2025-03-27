@@ -241,6 +241,10 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
     def test_new_cache_format_0(self):
         super().test_new_cache_format_0()
 
+    @skipIfRocm(arch='gfx90a', os_name='ubuntu', os_version='22.04')
+    def test_new_cache_format_1(self):
+        super().test_new_cache_format_1()
+
     def setUp(self):
         self.model_tester = Qwen2VLVisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Qwen2VLConfig, has_text_modality=False)

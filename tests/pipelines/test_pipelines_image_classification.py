@@ -33,6 +33,7 @@ from transformers.testing_utils import (
     require_torch_or_tf,
     require_vision,
     slow,
+    skipIfRocm,
 )
 
 from .test_pipelines_common import ANY
@@ -143,6 +144,7 @@ class ImageClassificationPipelineTests(unittest.TestCase):
                 compare_pipeline_output_to_hub_spec(output_element, ImageClassificationOutputElement)
 
     @require_torch
+    @skipIfRocm
     def test_small_model_pt(self):
         small_model = "hf-internal-testing/tiny-random-vit"
         image_classifier = pipeline("image-classification", model=small_model)

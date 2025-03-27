@@ -559,6 +559,10 @@ class FastSpeech2ConformerWithHifiGanTest(ModelTesterMixin, unittest.TestCase):
     is_encoder_decoder = True
 
     @skipIfRocm
+    def test_model_outputs_equivalence(self):
+        super().test_model_outputs_equivalence()
+
+    @skipIfRocm
     def test_multi_gpu_data_parallel_forward(self):
         super().test_multi_gpu_data_parallel_forward()
 
