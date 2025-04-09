@@ -34,6 +34,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    Expectations
 )
 
 
@@ -342,13 +343,24 @@ class ColPaliModelIntegrationTest(unittest.TestCase):
         self.assertTrue((scores.argmax(axis=1) == torch.arange(len(ds), device=scores.device)).all())
 
         # Further validation: fine-grained check, with a hardcoded score from the original implementation
-        expected_scores = torch.tensor(
-            [
-                [15.5625, 6.5938, 14.4375],
-                [12.2500, 16.2500, 11.0000],
-                [15.0625, 11.7500, 21.0000],
-            ],
-            dtype=scores.dtype,
-        )
+        expectations = Expectations({
+            (None, None): torch.tensor(
+                [
+                    [15.5625, 6.5938, 14.4375],
+                    [12.2500, 16.2500, 11.0000],
+                    [15.0625, 11.7500, 21.0000],
+                ],
+                dtype=scores.dtype,
+            ),
+            ("rocm", 9): torch.tensor(
+                [
+                    [15.5000,  6.9062, 14.6875],
+                    [12.3125, 15.6250, 10.9375],
+                    [14.5625, 11.6875, 18.8750]
+                ],
+                dtype=scores.dtype,
+            )
+        })
+        expected_scores = expectations.get_expectation()
 
         assert torch.allclose(scores, expected_scores, atol=1), f"Expected scores {expected_scores}, got {scores}"

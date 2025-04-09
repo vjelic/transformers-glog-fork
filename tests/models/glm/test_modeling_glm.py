@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_torch_sdpa,
     slow,
     torch_device,
+    Expectations
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -433,10 +434,17 @@ class GlmIntegrationTest(unittest.TestCase):
             cls.cuda_compute_capability_major_version = torch.cuda.get_device_capability()[0]
 
     def test_model_9b_fp16(self):
-        EXPECTED_TEXTS = [
-            "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
-            "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
-        ]
+        expectations = Expectations({
+            (None, None): [
+                "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
+                "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
+            ],
+            ("rocm", 9): [
+                'Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the',
+                'Hi today I am going to show you how to make a simple and easy to make a DIY wooden box.'
+            ]
+        })
+        EXPECTED_TEXTS = expectations.get_expectation()
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_id, low_cpu_mem_usage=True, torch_dtype=torch.float16, revision=self.revision
@@ -451,10 +459,17 @@ class GlmIntegrationTest(unittest.TestCase):
         self.assertEqual(output_text, EXPECTED_TEXTS)
 
     def test_model_9b_bf16(self):
-        EXPECTED_TEXTS = [
-            "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
-            "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
-        ]
+        expectations = Expectations({
+            (None, None): [
+                "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
+                "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
+            ],
+            ("rocm", 9): [
+                'Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the',
+                'Hi today I am going to show you how to make a simple and easy to make a DIY Christmas tree.'
+            ]
+        })
+        EXPECTED_TEXTS = expectations.get_expectation()
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_id, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16, revision=self.revision
@@ -493,10 +508,17 @@ class GlmIntegrationTest(unittest.TestCase):
 
     @require_torch_sdpa
     def test_model_9b_sdpa(self):
-        EXPECTED_TEXTS = [
-            "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
-            "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
-        ]
+        expectations = Expectations({
+            (None, None): [
+                "Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the",
+                "Hi today I am going to show you how to make a simple and easy to make a DIY paper flower.",
+            ],
+            ("rocm", 9): [
+                'Hello I am doing a project on the history of the internetSolution:\n\nStep 1: Introduction\nThe history of the',
+                'Hi today I am going to show you how to make a simple and easy to make a DIY Christmas tree.'
+            ]
+        })
+        EXPECTED_TEXTS = expectations.get_expectation()
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
