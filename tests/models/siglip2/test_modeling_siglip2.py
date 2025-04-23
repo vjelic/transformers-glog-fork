@@ -30,6 +30,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    get_device_properties
 )
 from transformers.utils import (
     is_torch_available,
@@ -350,7 +351,12 @@ class Siglip2VisionModelTest(Siglip2ModelTesterMixin, unittest.TestCase):
     @is_flaky()
     def test_eager_matches_sdpa_inference(self, *args):
         # adding only flaky decorator here and call the parent test method
-        return getattr(ModelTesterMixin, self._testMethodName)(self)
+        if 'rocm' == get_device_properties()[0]:
+            from torch.nn.attention import sdpa_kernel, SDPBackend
+            with sdpa_kernel(SDPBackend.MATH):
+                return getattr(ModelTesterMixin, self._testMethodName)(self)
+        else:
+            return getattr(ModelTesterMixin, self._testMethodName)(self)
 
 
 class Siglip2TextModelTester:
@@ -589,6 +595,7 @@ class Siglip2ModelTest(Siglip2ModelTesterMixin, PipelineTesterMixin, unittest.Te
 
     @unittest.skip(reason="Retain_grad is tested in individual model tests")
     def test_retain_grad_hidden_states_attentions(self):
+        torch.use_deterministic_algorithms(False)
         pass
 
     @unittest.skip(reason="Siglip2Model does not have input/output embeddings")

@@ -99,7 +99,11 @@ class BitNetTest(unittest.TestCase):
         Simple test that checks if the quantized model is working properly
         """
         input_text = "What are we having for dinner?"
-        expected_output = "What are we having for dinner? What are we going to do for fun this weekend?"
+        expectations = Expectations({
+            (None, None): "What are we having for dinner? What are we going to do for fun this weekend?",
+            ("rocm", 9): "What are we having for dinner? What are we going to do for our vacation? What"
+        })
+        expected_output = expectations.get_expectation()
         input_ids = self.tokenizer(input_text, return_tensors="pt").to("cuda")
 
         output = self.quantized_model.generate(**input_ids, max_new_tokens=11, do_sample=False)

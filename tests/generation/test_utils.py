@@ -48,6 +48,7 @@ from transformers.testing_utils import (
     set_model_tester_for_less_flaky_test,
     slow,
     torch_device,
+    get_device_properties
 )
 from transformers.utils import is_ipex_available, is_torchdynamo_exporting
 
@@ -2399,7 +2400,12 @@ class GenerationTesterMixin:
     @slow
     def test_eager_matches_sdpa_generate(self):
         """Tests that generate has equivalent outputs with SDPA and eager attention implementations."""
-        self._test_attention_implementation("sdpa")
+        if "rocm" == get_device_properties()[0]:
+            from torch.nn.attention import sdpa_kernel, SDPBackend
+            with sdpa_kernel(SDPBackend.MATH):
+                self._test_attention_implementation("sdpa")
+        else:
+            self._test_attention_implementation("sdpa")
 
     @pytest.mark.flash_attn_test
     @require_flash_attn

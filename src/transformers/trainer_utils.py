@@ -89,7 +89,7 @@ def enable_full_determinism(seed: int, warn_only: bool = False):
         tf.config.experimental.enable_op_determinism()
 
 
-def set_seed(seed: int, deterministic: bool = False):
+def set_seed(seed: int, deterministic: bool = True):
     """
     Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch` and/or `tf` (if installed).
 
