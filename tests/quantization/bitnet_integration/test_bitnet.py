@@ -27,6 +27,7 @@ from transformers.testing_utils import (
     require_torch_gpu,
     slow,
     torch_device,
+    Expectations
 )
 from transformers.utils import is_accelerate_available, is_torch_available
 
