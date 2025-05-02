@@ -6,6 +6,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV MIOPEN_DEBUG_CONV_IMPLICIT_GEMM=0
 ENV MIOPEN_FIND_MODE=1
 ENV AMD_DIRECT_DISPATCH=0
+ENV HSA_ENABLE_SDMA=0
+ENV TORCH_PREFER_HIPBLASLT=0
 
 RUN apt update && \
     apt install -y --no-install-recommends git libsndfile1-dev tesseract-ocr espeak-ng python3 python3-dev python3-pip python3-dev ffmpeg git-lfs && \
@@ -17,25 +19,15 @@ RUN git lfs install
 RUN rm -rf $(pip show numpy | grep Location: | awk '{print $2}')/numpy*
 RUN python3 -m pip install --no-cache-dir --upgrade pip numpy
 
-RUN python3 -m pip uninstall -y torch torchvision torchaudio
-RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2.4
-
 RUN python3 -m pip install --no-cache-dir --upgrade importlib-metadata setuptools ninja git+https://github.com/facebookresearch/detectron2.git pytesseract "itsdangerous<2.1.0"
-
-RUN git clone --recurse https://github.com/ROCm/bitsandbytes && \
-    cd bitsandbytes && \
-    git checkout rocm_enabled_multi_backend && \
-    pip install -r requirements-dev.txt && \
-    cmake -DCOMPUTE_BACKEND=hip -S .  && \
-    make && \
-    pip install .
 
 ARG REF=main
 WORKDIR /
 
 # Invalidate docker cache from here if new commit is available.
 #ADD https://api.github.com/repos/huggingface/transformers/git/refs/heads/main version.json
-RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
+#RUN git clone https://github.com/huggingface/transformers && cd transformers && git checkout $REF
+RUN git clone -b upstream_rocm https://github.com/ROCm/transformers
 
 RUN python3 -m pip install --no-cache-dir -e ./transformers[dev-torch,testing,video]
 
@@ -48,3 +40,23 @@ RUN cd transformers && python3 setup.py develop
 # Remove nvml and nvidia-ml-py as it is not compatible with ROCm. apex is not tested on NVIDIA either.
 RUN python3 -m pip uninstall py3nvml pynvml nvidia-ml-py apex -y
 RUN pip install phonemizer pyctcdecode
+
+#RUN git clone https://github.com/Dao-AILab/flash-attention.git flash-attention-v2 && \
+#    cd flash-attention-v2 && \
+    #git checkout 2554f490101742ccdc56620a938f847f61754be6 &&
+#    git submodule update --init --recursive && \
+#    BUILD_TARGET=rocm GPU_ARCHS="gfx90a;gfx942" PYTORCH_ROCM_ARCH="gfx90a;gfx942" python3 setup.py install && \
+#    cd .. && \
+#    rm -rf flash-attention
+
+RUN python3 -m pip uninstall -y torch torchvision torchaudio
+RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
+
+#RUN git clone --recurse https://github.com/ROCm/bitsandbytes && \
+#    cd bitsandbytes && \
+#    git checkout rocm_enabled_multi_backend && \
+#    pip install -r requirements-dev.txt && \
+#    cmake -DCOMPUTE_BACKEND=hip -S .  && \
+#    make && \
+#    pip install . && \
+#    ln /opt/conda/envs/py_3.12/lib/python3.12/site-packages/bitsandbytes/libbitsandbytes_rocm64.so /opt/conda/envs/py_3.12/lib/python3.12/site-packages/bitsandbytes/libbitsandbytes_rocm63.so
