@@ -1,4 +1,4 @@
-FROM rocm/pytorch:rocm6.4_ubuntu24.04_py3.12_pytorch_release_2.6.0
+FROM rocm/pytorch:rocm6.3.4_ubuntu22.04_py3.10_pytorch_release_2.4.0
 LABEL maintainer="Hugging Face"
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -39,24 +39,32 @@ RUN cd transformers && python3 setup.py develop
 
 # Remove nvml and nvidia-ml-py as it is not compatible with ROCm. apex is not tested on NVIDIA either.
 RUN python3 -m pip uninstall py3nvml pynvml nvidia-ml-py apex -y
-RUN pip install phonemizer pyctcdecode
+RUN pip install phonemizer pyctcdecode accelerate
+RUN pip install --upgrade botocore
 
-#RUN git clone https://github.com/Dao-AILab/flash-attention.git flash-attention-v2 && \
-#    cd flash-attention-v2 && \
-    #git checkout 2554f490101742ccdc56620a938f847f61754be6 &&
-#    git submodule update --init --recursive && \
-#    BUILD_TARGET=rocm GPU_ARCHS="gfx90a;gfx942" PYTORCH_ROCM_ARCH="gfx90a;gfx942" python3 setup.py install && \
-#    cd .. && \
-#    rm -rf flash-attention
+
+ENV CMAKE_VERSION=3.26.4
+RUN cd /usr/local && \
+    wget -q -O - https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar zxf -
+
+ENV PATH=/usr/local/cmake-${CMAKE_VERSION}-linux-x86_64/bin:${PATH}
+
 
 RUN python3 -m pip uninstall -y torch torchvision torchaudio
 RUN python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
 
-#RUN git clone --recurse https://github.com/ROCm/bitsandbytes && \
-#    cd bitsandbytes && \
-#    git checkout rocm_enabled_multi_backend && \
-#    pip install -r requirements-dev.txt && \
-#    cmake -DCOMPUTE_BACKEND=hip -S .  && \
-#    make && \
-#    pip install . && \
-#    ln /opt/conda/envs/py_3.12/lib/python3.12/site-packages/bitsandbytes/libbitsandbytes_rocm64.so /opt/conda/envs/py_3.12/lib/python3.12/site-packages/bitsandbytes/libbitsandbytes_rocm63.so
+RUN git clone --recurse https://github.com/ROCm/bitsandbytes && \
+    cd bitsandbytes && \
+    git checkout rocm_enabled_multi_backend && \
+    pip install -r requirements-dev.txt && \
+    cmake -DCOMPUTE_BACKEND=hip -DBNB_ROCM_ARCH="gfx942" -S . && \
+    make && \
+    pip install .
+
+ARG FLASH_ATT_V2_COMMIT_ROCM=2554f490101742ccdc56620a938f847f61754be6
+
+RUN git clone https://github.com/ROCm/flash-attention.git flash-attention-v2 && \
+    cd flash-attention-v2 && git submodule update --init --recursive && \
+    GPU_ARCHS="gfx90a;gfx942" PYTORCH_ROCM_ARCH="gfx90a;gfx942" python setup.py install && \
+    cd .. && \
+    rm -rf flash-attention
