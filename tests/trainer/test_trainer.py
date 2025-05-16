@@ -2813,7 +2813,7 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         trainer.train()
         self.assertEqual(trainer._train_batch_size, 8)
 
-    @skipIfRocm(arch=['gfx942','gfx90a'])
+    @skipIfRocm
     def test_auto_batch_size_with_resume_from_checkpoint(self):
         train_dataset = RegressionDataset(length=128)
 
@@ -3317,7 +3317,7 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
             trainer.state.best_model_checkpoint = os.path.join(tmp_dir, "checkpoint-5")
             self.check_checkpoint_deletion(trainer, tmp_dir, [5, 25])
 
-    @skipIfRocm(arch=['gfx942','gfx90a'])
+    @skipIfRocm
     def test_compare_trainer_and_checkpoint_args_logging(self):
         logger = logging.get_logger()
 
