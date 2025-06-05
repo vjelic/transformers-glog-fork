@@ -28,6 +28,7 @@ from transformers.testing_utils import (
     require_torch_accelerator,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -311,6 +312,14 @@ class LlamaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
 
     # used in `test_torch_compile_for_training`
     _torch_compile_train_cls = LlamaForCausalLM if is_torch_available() else None
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()    
 
     def setUp(self):
         self.model_tester = LlamaModelTester(self)

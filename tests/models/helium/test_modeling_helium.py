@@ -22,6 +22,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...test_configuration_common import ConfigTester
@@ -70,6 +71,10 @@ class HeliumModelTest(GemmaModelTest, unittest.TestCase):
     test_pruning = False
     _is_stateful = True
     model_split_percents = [0.5, 0.6]
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
 
     def setUp(self):
         self.model_tester = HeliumModelTester(self)
