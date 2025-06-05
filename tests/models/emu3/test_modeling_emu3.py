@@ -140,6 +140,10 @@ class Emu3Text2TextModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTe
     def test_generate_compile_model_forward(self):
         super().test_generate_compile_model_forward()
 
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()    
+
     def setUp(self):
         self.model_tester = Emu3Text2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Emu3TextConfig, hidden_size=37)
