@@ -246,7 +246,7 @@ class ModernBertModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTeste
     test_pruning = False
     model_split_percents = [0.5, 0.8, 0.9]
 
-    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    @skipIfRocm
     def test_training_gradient_checkpointing_use_reentrant_false(self):
         super().test_training_gradient_checkpointing_use_reentrant_false()
 
