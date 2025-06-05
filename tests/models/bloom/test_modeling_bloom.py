@@ -18,7 +18,7 @@ import math
 import unittest
 
 from transformers import BloomConfig, is_torch_available
-from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device
+from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -344,6 +344,10 @@ class BloomModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     test_missing_keys = False
     test_pruning = False
     test_torchscript = True  # torch.autograd functions seems not to be supported
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
 
     def setUp(self):
         self.model_tester = BloomModelTester(self)

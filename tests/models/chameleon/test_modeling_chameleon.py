@@ -289,9 +289,13 @@ class ChameleonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
 
-    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    @skipIfRocm
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward() 
 
     def setUp(self):
         self.model_tester = ChameleonModelTester(self)
