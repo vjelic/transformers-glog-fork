@@ -128,13 +128,22 @@ class MllamaForCausalLMModelTest(ModelTesterMixin, GenerationTesterMixin, unitte
     test_pruning = False
     test_head_masking = False
 
-    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    @skipIfRocm
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 
-    @skipIfRocm(os_name='ubuntu', os_version='24.04')
+    @skipIfRocm
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
+
+    @skipIfRocm
+    def test_generate_compilation_all_outputs(self):
+        super().test_generate_compilation_all_outputs()
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        test_generate_compile_model_forward()
+   
 
     def setUp(self):
         self.model_tester = MllamaText2TextModelTester(self)
