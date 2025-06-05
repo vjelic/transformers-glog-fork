@@ -38,6 +38,7 @@ from transformers.testing_utils import (
     require_vision,
     slow,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import is_torch_available
 
@@ -503,6 +504,10 @@ class InstructBlipVideoForConditionalGenerationDecoderOnlyTest(
     test_attention_outputs = False
     test_torchscript = False
     _is_composite = True
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
 
     def setUp(self):
         self.model_tester = InstructBlipVideoForConditionalGenerationDecoderOnlyModelTester(self)

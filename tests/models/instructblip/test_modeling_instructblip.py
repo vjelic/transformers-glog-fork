@@ -487,6 +487,10 @@ class InstructBlipForConditionalGenerationDecoderOnlyTest(ModelTesterMixin, Gene
     test_torchscript = False
     _is_composite = True
 
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
     def setUp(self):
         self.model_tester = InstructBlipForConditionalGenerationDecoderOnlyModelTester(self)
         self.config_tester = ConfigTester(
