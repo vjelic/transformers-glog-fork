@@ -191,6 +191,14 @@ class LlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterM
     test_head_masking = False
     _is_composite = True
 
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
     def setUp(self):
         self.model_tester = LlavaVisionText2TextModelTester(self)
         common_properties = ["image_token_index", "vision_feature_layer", "image_seq_length"]

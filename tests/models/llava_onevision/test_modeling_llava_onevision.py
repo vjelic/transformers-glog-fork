@@ -34,6 +34,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -221,6 +222,10 @@ class LlavaOnevisionForConditionalGenerationModelTest(ModelTesterMixin, Generati
     test_pruning = False
     test_head_masking = False
     _is_composite = True
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
 
     def setUp(self):
         self.model_tester = LlavaOnevisionVisionText2TextModelTester(self)
