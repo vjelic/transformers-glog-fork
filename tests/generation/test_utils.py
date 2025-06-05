@@ -2006,7 +2006,6 @@ class GenerationTesterMixin:
             new_results = model.generate(**generation_kwargs, **inputs_dict)
             self.assertListEqual(legacy_results.tolist(), new_results.tolist())
 
-    @skipIfRocm
     @pytest.mark.generate
     def test_generate_with_static_cache(self):
         """
