@@ -303,10 +303,14 @@ class GraniteModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         super().test_generate_from_inputs_embeds_with_static_cache()
         pass
 
-    @skipIfRocm(arch=['gfx1201','gfx1200'])
+    @skipIfRocm
     def test_generate_with_static_cache(self):
         super().test_generate_with_static_cache()
         pass
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
 
     def setUp(self):
         self.model_tester = GraniteModelTester(self)

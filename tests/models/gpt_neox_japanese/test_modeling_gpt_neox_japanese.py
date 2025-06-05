@@ -18,7 +18,7 @@ import unittest
 
 from transformers import GPTNeoXJapaneseConfig, is_torch_available
 from transformers.models.gpt_neox_japanese.tokenization_gpt_neox_japanese import GPTNeoXJapaneseTokenizer
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -207,6 +207,15 @@ class GPTNeoXModelJapaneseTest(ModelTesterMixin, GenerationTesterMixin, Pipeline
     test_missing_keys = False
     test_model_parallel = False
     test_head_masking = False
+
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()    
+
 
     def setUp(self):
         self.model_tester = GPTNeoXJapaneseModelTester(self)

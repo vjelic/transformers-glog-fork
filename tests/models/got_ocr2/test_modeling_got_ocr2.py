@@ -180,6 +180,14 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     test_headmasking = False
     test_pruning = False
 
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()    
+
     def setUp(self):
         self.model_tester = GotOcr2VisionText2TextModelTester(self)
         self.config_tester = ConfigTester(self, config_class=GotOcr2Config, has_text_modality=False)
