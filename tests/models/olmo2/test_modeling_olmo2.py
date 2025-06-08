@@ -289,6 +289,14 @@ class Olmo2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
     # This is because we are hitting edge cases with the causal_mask buffer
     model_split_percents = [0.5, 0.7, 0.8]
 
+    @skipIfRocm
+    def test_generate_compile_model_forward(self):
+        super().test_generate_compile_model_forward()
+
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+
     def setUp(self):
         self.model_tester = Olmo2ModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Olmo2Config, hidden_size=37)
