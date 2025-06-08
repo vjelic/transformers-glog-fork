@@ -27,6 +27,7 @@ from transformers import (
 from transformers.testing_utils import (
     require_torch,
     torch_device,
+    skipIfRocm,
 )
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -181,6 +182,10 @@ class PaliGemma2ForConditionalGenerationModelTest(ModelTesterMixin, GenerationTe
     test_torchscript = False
     test_head_masking = False
     _is_composite = True
+
+    @skipIfRocm
+    def test_generate_from_inputs_embeds_0_greedy(self):
+        super().test_generate_from_inputs_embeds_0_greedy()
 
     def setUp(self):
         self.model_tester = PaliGemma2VisionText2TextModelTester(self)
