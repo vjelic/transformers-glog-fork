@@ -326,6 +326,11 @@ class Starcoder2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTeste
     def test_generate_from_inputs_embeds_with_static_cache(self):
         super().test_generate_from_inputs_embeds_with_static_cache()
 
+    @skipIfRocm
+    def test_generate_with_static_cache(self):
+        super().test_generate_with_static_cache()
+    
+
     def setUp(self):
         self.model_tester = Starcoder2ModelTester(self)
         self.config_tester = ConfigTester(self, config_class=Starcoder2Config, hidden_size=37)
