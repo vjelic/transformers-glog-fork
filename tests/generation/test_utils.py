@@ -4141,7 +4141,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
 
     @pytest.mark.generate
     @require_torch_multi_gpu
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1200'])
+    @skipIfRocm
     def test_generate_with_static_cache_multi_gpu(self):
         """
         Tests if the static cache has been set correctly and if generate works correctly when we are using multi-gpus.
@@ -4177,7 +4177,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
 
     @pytest.mark.generate
     @require_torch_multi_gpu
-    @skipIfRocm(arch=['gfx1201','gfx942','gfx90a','gfx1200'])
+    @skipIfRocm
     def test_init_static_cache_multi_gpu(self):
         """
         Tests if the static cache has been set correctly when we initialize it manually in a multi-gpu setup.
