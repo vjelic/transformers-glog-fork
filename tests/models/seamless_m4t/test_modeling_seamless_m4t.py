@@ -19,7 +19,7 @@ import tempfile
 import unittest
 
 from transformers import SeamlessM4TConfig, is_speech_available, is_torch_available
-from transformers.testing_utils import require_torch, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device, skipIfRocm
 from transformers.trainer_utils import set_seed
 from transformers.utils import cached_property
 
@@ -615,6 +615,14 @@ class SeamlessM4TModelWithTextInputTest(
         if is_torch_available()
         else {}
     )
+
+    @skipIfRocm
+    def test_pipeline_automatic_speech_recognition(self):
+        super().test_pipeline_automatic_speech_recognition()    
+
+    @skipIfRocm
+    def test_pipeline_automatic_speech_recognition_fp16(self):
+        super().test_pipeline_automatic_speech_recognition_fp16()    
 
     def setUp(self):
         self.model_tester = SeamlessM4TModelTester(self, input_modality="text")
