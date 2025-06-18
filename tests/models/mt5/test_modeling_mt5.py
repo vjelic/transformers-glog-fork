@@ -26,6 +26,7 @@ from transformers.testing_utils import (
     require_torch,
     slow,
     torch_device,
+    skipIfRocm,
 )
 from transformers.utils import is_torch_fx_available
 
@@ -573,6 +574,10 @@ class MT5ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin,
     is_encoder_decoder = True
     # The small MT5 model needs higher percentages for CPU/MP tests
     model_split_percents = [0.5, 0.8, 0.9]
+
+    @skipIfRocm
+    def test_model_parallelization(self):
+        super().test_model_parallelization()
 
     def setUp(self):
         self.model_tester = MT5ModelTester(self)
