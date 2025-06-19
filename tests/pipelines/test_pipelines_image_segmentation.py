@@ -45,6 +45,7 @@ from transformers.testing_utils import (
     require_torch,
     require_vision,
     slow,
+    skipIfRocm,
 )
 
 from .test_pipelines_common import ANY
@@ -739,6 +740,7 @@ class ImageSegmentationPipelineTests(unittest.TestCase):
             ],
         )
 
+    @skipIfRocm
     def test_save_load(self):
         model_id = "hf-internal-testing/tiny-detr-mobilenetsv3-panoptic"
 
