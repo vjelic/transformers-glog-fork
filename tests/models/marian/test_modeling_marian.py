@@ -48,11 +48,18 @@ if is_torch_available():
         MarianMTModel,
         TranslationPipeline,
     )
-    from transformers.models.marian.convert_marian_to_pytorch import (
-        ORG_NAME,
-        convert_hf_name_to_opus_name,
-        convert_opus_name_to_hf_name,
-    )
+    
+    try:
+        from transformers.models.marian.convert_marian_to_pytorch import (
+            ORG_NAME,
+            convert_hf_name_to_opus_name,
+            convert_opus_name_to_hf_name,
+        )
+    except ImportError:
+        ORG_NAME = None
+        convert_hf_name_to_opus_name = None
+        convert_opus_name_to_hf_name = None
+
     from transformers.models.marian.modeling_marian import (
         MarianDecoder,
         MarianEncoder,
@@ -399,6 +406,7 @@ def _long_tensor(tok_lst):
 class ModelManagementTests(unittest.TestCase):
     @slow
     @require_torch
+    @unittest.skipIf(ORG_NAME is None, reason="ORG_NAME is not available from transformers.models.marian.convert_marian_to_pytorch")
     def test_model_names(self):
         model_list = list_models()
         model_ids = [x.id for x in model_list if x.id.startswith(ORG_NAME)]
@@ -658,6 +666,7 @@ class TestMarian_FI_EN_V2(MarianIntegrationTest):
 
 @require_torch
 class TestConversionUtils(unittest.TestCase):
+    @unittest.skipIf(convert_opus_name_to_hf_name is None, reason="convert_opus_name_to_hf_name is not available from transformers.models.marian.convert_marian_to_pytorch")
     def test_renaming_multilingual(self):
         old_names = [
             "opus-mt-cmn+cn+yue+ze_zh+zh_cn+zh_CN+zh_HK+zh_tw+zh_TW+zh_yue+zhs+zht+zh-fi",
@@ -668,6 +677,7 @@ class TestConversionUtils(unittest.TestCase):
         expected = ["opus-mt-ZH-fi", "opus-mt-cmn_cn-fi", "opus-mt-en-de", "opus-mt-en-de"]
         self.assertListEqual(expected, [convert_opus_name_to_hf_name(x) for x in old_names])
 
+    @unittest.skipIf(convert_hf_name_to_opus_name is None, reason="convert_hf_name_to_opus_name is not available from transformers.models.marian.convert_marian_to_pytorch")
     def test_undoing_renaming(self):
         hf_names = ["opus-mt-ZH-fi", "opus-mt-cmn_cn-fi", "opus-mt-en-de", "opus-mt-en-de"]
         converted_opus_names = [convert_hf_name_to_opus_name(x) for x in hf_names]
