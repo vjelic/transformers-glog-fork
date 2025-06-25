@@ -742,10 +742,25 @@ class GemmaIntegrationTest(unittest.TestCase):
     def test_model_2b_bf16_dola(self):
         model_id = "google/gemma-2b"
         # ground truth text generated with dola_layers="low", repetition_penalty=1.2
-        EXPECTED_TEXTS = [
-            "Hello I am doing an experiment and need to get the mass of a block. The problem is, it has no scale",
-            "Hi today we have the review for a <strong>2016/2017</strong> season of",
-        ]
+
+        # Following the example set in other tests of this class,
+        # the compute capability major version 9 is used for recognizing MI300
+
+        # Note: the value 9 is currently set for MI300, but may need potential future adjustments for H100s,
+        # considering differences in hardware processing and potential deviations in generated text.
+        
+        EXPECTED_TEXTS = (  
+            [  
+                "Hello I am doing an experiment and need to get the mass of a block. The only tool we have is a scale",  
+                "Hi today we have the review for a <strong>2016/2017</strong> season of",  
+            ]  
+            if self.cuda_compute_capability_major_version == 9  
+            else  
+            [  
+                "Hello I am doing an experiment and need to get the mass of a block. The problem is, it has no scale",  
+                "Hi today we have the review for a <strong>2016/2017</strong> season of",  
+            ]  
+        )  
 
         model = AutoModelForCausalLM.from_pretrained(model_id, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16).to(
             torch_device
@@ -758,4 +773,7 @@ class GemmaIntegrationTest(unittest.TestCase):
             **inputs, max_new_tokens=20, do_sample=False, dola_layers="low", repetition_penalty=1.2
         )
         output_text = tokenizer.batch_decode(output, skip_special_tokens=True)
+        print("*** Actual output:")
+        print(f"{output_text[0]=}")
+        print(f"{output_text[1]=}")
         self.assertEqual(output_text, EXPECTED_TEXTS)
