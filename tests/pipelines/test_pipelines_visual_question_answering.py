@@ -235,6 +235,7 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
         )
 
     @require_torch
+    @skipIfRocm
     def test_small_model_pt_dataset(self):
         vqa_pipeline = pipeline("visual-question-answering", model="hf-internal-testing/tiny-vilt-random-vqa")
         dataset = load_dataset("hf-internal-testing/dummy_image_text_data", split="train[:2]")
